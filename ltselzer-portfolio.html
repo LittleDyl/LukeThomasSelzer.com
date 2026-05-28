@@ -181,6 +181,19 @@ h3 {
   gap: 0.6rem 1.2rem;
 }
 
+/* Personal bio specifically wants a clean 2-column layout regardless
+   of how wide the viewport is — feels more like an "info card" and
+   less like a stat table. Collapses to a single column on narrow
+   screens so phones still look nice. */
+#personal-list {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+@media (max-width: 540px) {
+  #personal-list {
+    grid-template-columns: 1fr;
+  }
+}
+
 .profile-list li {
   padding: 0.7rem 0.9rem;
   background: var(--ivory);
@@ -1098,8 +1111,7 @@ body.is-owner .owner-only { display: revert !important; }
         <ul class="profile-list" id="personal-list"></ul>
         <p class="muted" id="personal-bio" style="margin-top:1.4rem"></p>
         <!-- Populated by PersonalBio module from SOCIAL_PLATFORMS.
-             Hidden via CSS :empty when there are no socials to show.
-             (auto-deploy smoke test marker — safe to remove) -->
+             Hidden via CSS :empty when there are no socials to show. -->
         <ul class="social-links" id="personal-socials" aria-label="Social media links"></ul>
       </div>
 
