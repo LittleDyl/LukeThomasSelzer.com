@@ -1,0 +1,3191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Luke Thomas Selzer — Golfer Portfolio</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+DQogIDxjaXJjbGUgY3g9IjMyIiBjeT0iMzIiIHI9IjMwIiBmaWxsPSIjMWY0ZDJiIi8+DQogIDxyZWN0IHg9IjI4IiB5PSIxNCIgd2lkdGg9IjMiIGhlaWdodD0iMzQiIGZpbGw9IiNlN2Q5YTYiLz4NCiAgPHBhdGggZD0iTTMxIDE0IEw1MiAyMCBMMzEgMjYgWiIgZmlsbD0iI2M0M2EzYSIvPg0KICA8ZWxsaXBzZSBjeD0iMzAiIGN5PSI1MCIgcng9IjE0IiByeT0iMyIgZmlsbD0iIzNmYTY2NyIvPg0KPC9zdmc+DQo=" />
+
+  <!-- Supabase JS client (used by SupabaseStorage module for direct-to-bucket
+       uploads, bypassing the 5 MB Netlify Functions payload cap). -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <style>
+/* ======================================================================
+   Luke Thomas Selzer — Golfer Portfolio styles
+   ====================================================================== */
+
+:root {
+  --green-deep: #1f4d2b;
+  --green:      #2e7d4f;
+  --green-soft: #3fa667;
+  --sand:       #e7d9a6;
+  --ivory:      #f7f4ec;
+  --charcoal:   #1f2a24;
+  --muted:      #6b7a72;
+  --card:       #ffffff;
+  --shadow:     0 6px 18px rgba(20, 40, 30, 0.10);
+  --radius:     14px;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  color: var(--charcoal);
+  background: var(--ivory);
+  line-height: 1.55;
+}
+
+a { color: var(--green-deep); }
+
+/* ---------- Hero ---------- */
+.hero {
+  position: relative;
+  min-height: 420px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  color: #fff;
+  background:
+    radial-gradient(circle at 20% 20%, rgba(255,255,255,0.15), transparent 50%),
+    linear-gradient(135deg, var(--green-deep) 0%, var(--green) 60%, var(--green-soft) 100%);
+  padding: 3.2rem 1.5rem 4.5rem;
+  overflow: hidden;
+}
+
+.hero-overlay {
+  position: absolute; inset: 0;
+  background-image: repeating-linear-gradient(45deg,
+    rgba(255,255,255,0.04) 0 2px, transparent 2px 14px);
+  pointer-events: none;
+}
+
+.hero-content { position: relative; z-index: 1; max-width: 820px; }
+
+.player-photo {
+  width: 130px; height: 130px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 4px solid var(--sand);
+  box-shadow: 0 6px 20px rgba(0,0,0,0.25);
+  margin-bottom: 1rem;
+  background: #ddd;
+}
+
+.eyebrow {
+  text-transform: uppercase;
+  letter-spacing: 0.25em;
+  font-size: 0.78rem;
+  margin: 0 0 0.4rem;
+  color: var(--sand);
+}
+
+h1 {
+  font-size: clamp(2.4rem, 6vw, 4rem);
+  margin: 0;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.tagline {
+  font-size: 1.05rem;
+  opacity: 0.9;
+  margin: 0.3rem 0 1.5rem;
+}
+
+.quick-stats {
+  display: flex; gap: 2rem; justify-content: center; flex-wrap: wrap;
+  margin-bottom: 1.4rem;
+}
+
+.stat { display: flex; flex-direction: column; align-items: center; min-width: 90px; }
+.stat-num   { font-size: 1.9rem; font-weight: 800; color: var(--sand); }
+.stat-label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.15em; opacity: 0.85; }
+
+/* ---------- Layout ---------- */
+.container {
+  max-width: 960px;
+  margin: -2.5rem auto 3rem;
+  padding: 0 1.25rem;
+  position: relative;
+  z-index: 2;
+}
+
+/* ---------- Tabs ---------- */
+.tabs {
+  display: flex; gap: 0.3rem; flex-wrap: wrap;
+  background: var(--card);
+  padding: 0.5rem;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  margin-bottom: 1.4rem;
+}
+
+.tab {
+  flex: 1 1 auto;
+  background: transparent;
+  border: none;
+  padding: 0.8rem 0.9rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--muted);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  white-space: nowrap;
+}
+
+.tab:hover { color: var(--green-deep); }
+.tab.active {
+  background: var(--green-deep);
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(31, 77, 43, 0.25);
+}
+
+/* ---------- Panels ---------- */
+.tab-panel {
+  display: none;
+  background: var(--card);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 2rem;
+  animation: fade 0.25s ease;
+}
+.tab-panel.active { display: block; }
+
+@keyframes fade {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+h2 { margin-top: 0; color: var(--green-deep); font-size: 1.6rem; }
+h3 {
+  color: var(--green-deep);
+  margin-top: 1.8rem;
+  font-size: 1rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.muted { color: var(--muted); font-size: 0.95rem; }
+
+/* ---------- Profile list (used on bio tabs) ---------- */
+.profile-list {
+  list-style: none;
+  padding: 0; margin: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0.6rem 1.2rem;
+}
+
+.profile-list li {
+  padding: 0.7rem 0.9rem;
+  background: var(--ivory);
+  border-left: 3px solid var(--green-soft);
+  border-radius: 6px;
+  font-size: 0.95rem;
+}
+
+.profile-list .label {
+  display: block;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+  margin-bottom: 0.15rem;
+}
+
+/* ---------- Social links (visitor view) ----------
+   A horizontal row of pill-shaped links rendered under the personal
+   bio. Driven by SOCIAL_PLATFORMS so adding a new network is a
+   single-line change in JS (DRY + Open/Closed). */
+.social-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 1rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+.social-links:empty { display: none; }
+.social-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.45rem 0.85rem;
+  border-radius: 999px;
+  background: var(--ivory);
+  border: 1px solid var(--green-soft);
+  color: var(--green-deep);
+  text-decoration: none;
+  font-size: 0.9rem;
+  font-weight: 600;
+  transition: transform 0.15s ease, background 0.15s ease;
+}
+.social-link:hover {
+  background: var(--green-soft);
+  transform: translateY(-1px);
+}
+.social-link .social-icon {
+  font-size: 1.05rem;
+  line-height: 1;
+}
+
+/* Owner-side social fieldset inside the edit form. */
+.socials-fieldset {
+  grid-column: 1 / -1;
+  border: 1px dashed var(--green-soft);
+  border-radius: 8px;
+  padding: 0.9rem 1rem 1.1rem;
+  margin: 0;
+}
+.socials-fieldset legend {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  padding: 0 0.4rem;
+}
+.socials-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0.7rem 1rem;
+  margin-top: 0.4rem;
+}
+
+/* ---------- Season summary strip ---------- */
+.season-summary {
+  margin: 1.2rem 0;
+  padding: 1rem 1.2rem;
+  background: var(--green-deep);
+  color: #fff;
+  border-radius: var(--radius);
+  font-size: 0.95rem;
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+.season-summary strong { color: var(--sand); }
+
+/* ---------- Tournament card ---------- */
+.tournaments { display: grid; gap: 1rem; }
+
+.tournament {
+  background: var(--ivory);
+  border-radius: var(--radius);
+  border: 1px solid rgba(31, 77, 43, 0.08);
+  padding: 1.1rem 1.3rem;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.tournament:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow);
+}
+
+.tnmt-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.6rem;
+}
+
+.tnmt-title-block { flex: 1 1 60%; min-width: 240px; }
+.tnmt-name {
+  font-weight: 700;
+  font-size: 1.05rem;
+  color: var(--charcoal);
+  line-height: 1.35;
+}
+.tnmt-meta {
+  font-size: 0.85rem;
+  color: var(--muted);
+  margin-top: 0.2rem;
+}
+
+.tnmt-place {
+  font-size: 1.6rem;
+  font-weight: 800;
+  color: var(--green-deep);
+  background: #fff;
+  padding: 0.3rem 0.9rem;
+  border-radius: 999px;
+  border: 2px solid var(--sand);
+  white-space: nowrap;
+}
+
+.tnmt-total {
+  display: inline-block;
+  margin-top: 0.4rem;
+  font-weight: 700;
+  font-size: 0.95rem;
+  padding: 0.3rem 0.7rem;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.diff-under  { background: #d6f0e0; color: #1f4d2b; }
+.diff-even   { background: #e7d9a6; color: #6b5a16; }
+.diff-over   { background: #f5dadb; color: #8a2a30; }
+
+.rounds-list {
+  margin: 0.7rem 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.4rem;
+}
+.rounds-list li {
+  display: grid;
+  grid-template-columns: auto auto 1fr;
+  gap: 0.7rem;
+  align-items: center;
+  font-size: 0.88rem;
+  padding: 0.45rem 0.7rem;
+  background: #fff;
+  border-radius: 8px;
+}
+.round-label { font-weight: 700; color: var(--green-deep); }
+.round-score { font-variant-numeric: tabular-nums; font-weight: 600; }
+.round-course { color: var(--muted); font-size: 0.82rem; }
+
+/* ---------- Panel header (title + edit button) ---------- */
+.panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+.panel-header h2,
+.panel-header h3 { margin: 0; }
+
+/* ---------- Personal bio edit form ---------- */
+.personal-edit-form {
+  margin-top: 1.2rem;
+  padding: 1.2rem 1.1rem;
+  background: #fff;
+  border: 1px dashed rgba(31, 77, 43, 0.25);
+  border-radius: var(--radius);
+}
+.personal-edit-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0.9rem 1.1rem;
+}
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  font-size: 0.85rem;
+}
+.field.full { grid-column: 1 / -1; }
+.field span {
+  font-weight: 700;
+  color: var(--green-deep);
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+.field input,
+.field textarea {
+  padding: 0.55rem 0.75rem;
+  border: 1px solid rgba(31, 77, 43, 0.25);
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 0.95rem;
+  color: var(--charcoal);
+  background: var(--ivory);
+  resize: vertical;
+}
+.field input:focus,
+.field textarea:focus {
+  outline: none;
+  border-color: var(--green-deep);
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(31, 77, 43, 0.12);
+}
+.form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 1.1rem;
+  padding-top: 1rem;
+  border-top: 1px dashed rgba(31, 77, 43, 0.18);
+}
+.personal-reset {
+  margin-left: auto;
+  border-color: rgba(180, 60, 60, 0.35);
+  color: #b03030;
+}
+.personal-reset:hover {
+  background: #b03030;
+  color: #fff;
+}
+
+/* ---------- Year selector (inside History tab) ---------- */
+.year-selector {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 1rem 0 1.6rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid rgba(31, 77, 43, 0.12);
+}
+.year-btn {
+  padding: 0.5rem 1.1rem;
+  border-radius: 999px;
+  border: 1px solid rgba(31, 77, 43, 0.25);
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font-family: inherit;
+  font-weight: 700;
+  font-size: 0.9rem;
+  transition: all 0.18s ease;
+}
+.year-btn:hover { color: var(--green-deep); border-color: var(--green-deep); }
+.year-btn.active {
+  background: var(--green-deep);
+  color: #fff;
+  border-color: var(--green-deep);
+  box-shadow: 0 4px 12px rgba(31, 77, 43, 0.22);
+}
+.year-panel { display: none; animation: fade 0.25s ease; }
+.year-panel.active { display: block; }
+
+/* ---------- Swing Video tab ----------
+   Now just an embedded YouTube iframe. The .swing-ghost-btn and
+   .swing-upload-btn rules below are retained because the personal-info
+   edit form (#personal-edit-btn etc.) reuses those classes. */
+.swing-ghost-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.45rem 0.9rem;
+  background: transparent;
+  border: 1px solid rgba(31, 77, 43, 0.3);
+  color: var(--green-deep);
+  border-radius: 8px;
+  font-family: inherit;
+  font-weight: 600;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, transform 0.15s ease;
+}
+.swing-ghost-btn:hover {
+  background: var(--green-deep);
+  color: #fff;
+  transform: translateY(-1px);
+}
+.swing-upload-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.55rem 1rem;
+  background: var(--green-deep);
+  color: #fff;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.15s ease;
+}
+.swing-upload-btn:hover { background: var(--green); transform: translateY(-1px); }
+
+.swing-iframe-wrap {
+  position: relative;
+  width: 100%;
+  padding-bottom: 56.25%; /* 16:9 */
+  border-radius: 10px;
+  overflow: hidden;
+  background: #000;
+}
+.swing-iframe-wrap iframe {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  border: 0;
+}
+
+/* ---------- Community swing videos ----------
+   Public upload form + responsive grid of submitted videos. Owner sees
+   a delete button per card (via the existing .owner-only mechanism). */
+.swing-section-heading {
+  margin: 1.4rem 0 0.6rem;
+  font-size: 1.1rem;
+  color: var(--green-deep);
+  letter-spacing: 0.01em;
+}
+
+/* ---------- Swing Videos (owner-curated public gallery) ---------- */
+.swing-community { margin-top: 2.2rem; }
+
+/* Owner-only Add controls live below the gallery. The top border + margin
+   visually separate the management UI from the public content above. */
+.swing-owner-controls {
+  margin-top: 2.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px dashed rgba(31, 77, 43, 0.25);
+}
+.swing-community-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1.1rem;
+  margin-top: 1rem;
+}
+.swing-empty {
+  grid-column: 1 / -1;
+  color: #777;
+  font-style: italic;
+  text-align: center;
+  padding: 1.2rem 0;
+}
+.swing-card {
+  background: #fff;
+  border: 1px solid rgba(31, 77, 43, 0.15);
+  border-radius: var(--radius);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+}
+.swing-card-media {
+  position: relative;
+  width: 100%;
+  padding-bottom: 56.25%; /* 16:9 */
+  background: #000;
+}
+.swing-card-media iframe,
+.swing-card-media video {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  border: 0;
+}
+.swing-card-body {
+  padding: 0.7rem 0.9rem 0.9rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+.swing-card-title {
+  font-weight: 700;
+  font-size: 0.98rem;
+  color: #1c1c1c;
+  line-height: 1.3;
+}
+.swing-card-meta {
+  font-size: 0.8rem;
+  color: #666;
+}
+.swing-card-delete {
+  align-self: flex-end;
+  margin-top: 0.3rem;
+  background: transparent;
+  border: 1px solid rgba(179, 38, 30, 0.4);
+  color: #b3261e;
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 0.3rem 0.65rem;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.swing-card-delete:hover { background: #b3261e; color: #fff; }
+
+/* Tiny "or" divider between the URL input and the file input.
+   Pure decoration — flexbox + pseudo-elements draw the hairlines so we
+   don't need extra DOM nodes. */
+.swing-or-divider {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 0.8rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin: 0.2rem 0;
+}
+.swing-or-divider::before,
+.swing-or-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: rgba(31, 77, 43, 0.18);
+}
+/* Shown in place of the upload form once the gallery hits MAX_VIDEOS.
+   Same dashed-frame styling so the swap feels intentional, not broken. */
+.swing-limit-message {
+  background: rgba(196, 58, 58, 0.06);
+  border: 1px dashed rgba(196, 58, 58, 0.45);
+  border-radius: var(--radius);
+  padding: 0.9rem 1.1rem;
+  margin: 0;
+  color: #8a2a30;
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+.swing-limit-message[hidden] { display: none; }
+
+.swing-upload-form {
+  background: #fff;
+  border: 1px dashed rgba(31, 77, 43, 0.3);
+  border-radius: var(--radius);
+  padding: 1rem 1.1rem;
+  margin-bottom: 1.4rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.swing-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--green-deep);
+}
+/* Slightly bigger, slightly punchier label text. Targeted at the <span>
+   (not the whole .swing-field) so the <input> inside keeps its size. */
+.swing-field > span {
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.005em;
+}
+.swing-field input {
+  font: inherit;
+  font-size: 0.95rem;
+  font-weight: 400;
+  color: #222;
+  padding: 0.5rem 0.7rem;
+  border: 1px solid rgba(31, 77, 43, 0.25);
+  border-radius: 8px;
+  background: #fafafa;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.swing-field input:focus {
+  outline: none;
+  border-color: var(--green-deep);
+  background: #fff;
+}
+.swing-upload-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  flex-wrap: wrap;
+}
+.swing-upload-status {
+  font-size: 0.85rem;
+  color: #555;
+}
+.swing-upload-status.is-error   { color: #b3261e; }
+.swing-upload-status.is-success { color: var(--green-deep); }
+
+/* ---------- User score controls ---------- */
+.user-controls {
+  margin: 1.2rem 0;
+  padding: 1rem 1.1rem;
+  background: #fff;
+  border: 1px dashed rgba(31, 77, 43, 0.25);
+  border-radius: var(--radius);
+}
+
+.user-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.btn {
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.9rem;
+  font-weight: 600;
+  padding: 0.55rem 1rem;
+  border-radius: 8px;
+  transition: transform 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+.btn:hover { transform: translateY(-1px); }
+
+.btn-primary { background: var(--green-deep); color: #fff; }
+.btn-primary:hover { background: var(--green); }
+
+.btn-ghost {
+  background: transparent;
+  color: var(--green-deep);
+  border: 1px solid rgba(31, 77, 43, 0.25);
+}
+.btn-ghost:hover { background: rgba(31, 77, 43, 0.06); }
+
+.btn-small {
+  background: var(--ivory);
+  color: var(--green-deep);
+  padding: 0.4rem 0.8rem;
+  font-size: 0.82rem;
+  border-radius: 6px;
+}
+
+.btn-icon {
+  background: transparent;
+  border: none;
+  font-size: 1.2rem;
+  line-height: 1;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 0 0.4rem;
+}
+.btn-icon:hover { color: #8a2a30; }
+
+/* ---------- Form ---------- */
+.user-form {
+  margin-top: 0.9rem;
+  padding-top: 0.9rem;
+  border-top: 1px solid rgba(31, 77, 43, 0.1);
+}
+
+.form-row {
+  display: flex;
+  gap: 0.8rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.8rem;
+}
+
+.form-row label {
+  display: flex;
+  flex-direction: column;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  font-weight: 600;
+  flex: 1 1 140px;
+}
+.form-row label.grow { flex: 2 1 240px; }
+
+.form-row input {
+  margin-top: 0.25rem;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid rgba(31, 77, 43, 0.2);
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 0.95rem;
+  color: var(--charcoal);
+  background: #fff;
+  text-transform: none;
+  letter-spacing: normal;
+  font-weight: 400;
+  width: 100%;
+}
+.form-row input:focus {
+  outline: none;
+  border-color: var(--green);
+  box-shadow: 0 0 0 3px rgba(63, 166, 103, 0.18);
+}
+
+.rounds-fieldset {
+  border: 1px solid rgba(31, 77, 43, 0.15);
+  border-radius: 8px;
+  padding: 0.8rem 0.9rem 0.9rem;
+  margin: 0.4rem 0 1rem;
+}
+.rounds-fieldset legend {
+  padding: 0 0.4rem;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--green-deep);
+  font-weight: 700;
+}
+
+.round-rows { display: grid; gap: 0.45rem; margin-bottom: 0.6rem; }
+.round-row {
+  display: grid;
+  grid-template-columns: 60px 1fr 2fr auto;
+  gap: 0.5rem;
+  align-items: center;
+}
+.round-row input {
+  padding: 0.45rem 0.6rem;
+  border: 1px solid rgba(31, 77, 43, 0.15);
+  border-radius: 6px;
+  font-family: inherit;
+  font-size: 0.9rem;
+}
+
+.form-actions {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
+  margin-top: 0.6rem;
+}
+
+.form-hint { margin: 0.7rem 0 0; font-size: 0.8rem; }
+.form-hint code {
+  background: var(--ivory);
+  padding: 0.05rem 0.3rem;
+  border-radius: 4px;
+  font-size: 0.85em;
+}
+
+/* ---------- User-added tournament card extras ---------- */
+.tournament-user {
+  border-left: 4px solid var(--green-soft);
+  position: relative;
+}
+
+.user-badge {
+  display: inline-block;
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  background: var(--green-soft);
+  color: #fff;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  vertical-align: middle;
+  margin-left: 0.3rem;
+}
+
+.btn-delete {
+  position: absolute;
+  top: 0.7rem;
+  right: 0.8rem;
+  background: transparent;
+  border: 1px solid rgba(138, 42, 48, 0.3);
+  color: #8a2a30;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.25rem 0.6rem;
+  border-radius: 6px;
+  cursor: pointer;
+  opacity: 0.6;
+  transition: opacity 0.15s ease, background 0.15s ease;
+}
+.tournament-user:hover .btn-delete { opacity: 1; }
+.btn-delete:hover { background: #f5dadb; }
+
+@media (max-width: 540px) {
+  .round-row {
+    grid-template-columns: 50px 1fr auto;
+    grid-template-areas:
+      "num   score  remove"
+      "course course course";
+  }
+  .round-row input[name="round-num"]    { grid-area: num; }
+  .round-row input[name="round-score"]  { grid-area: score; }
+  .round-row input[name="round-course"] { grid-area: course; }
+  .round-row .btn-icon                  { grid-area: remove; }
+}
+
+/* ---------- Responsive ---------- */
+@media (max-width: 540px) {
+  .tabs { gap: 0.25rem; padding: 0.35rem; }
+  .tab  { padding: 0.6rem 0.5rem; font-size: 0.85rem; }
+  .tab-panel { padding: 1.4rem 1.1rem; }
+  .rounds-list li {
+    grid-template-columns: auto 1fr;
+    grid-template-areas: "label score" "course course";
+  }
+  .round-label { grid-area: label; }
+  .round-score { grid-area: score; justify-self: end; }
+  .round-course { grid-area: course; }
+}
+
+/* ---------- Owner Gate / Visitor mode ----------
+   Visitors are the default (untrusted). When auth succeeds we add
+   `.is-owner` to <body>, which reveals `.owner-only` elements.
+   ⚠️ This is UX-level gating. Real verification happens server-side
+   in /api/auth against the OWNER_PASSWORD_HASH env var (SHA-256).
+   The `.owner-only` reveal is purely cosmetic — protected mutations
+   still re-check the password on the server, so a clever visitor
+   toggling `.is-owner` in devtools gains nothing but disappointment. */
+.owner-only { display: none !important; }
+body.is-owner .owner-only { display: revert !important; }
+
+.gate-overlay {
+  position: fixed; inset: 0; z-index: 1000;
+  display: grid; place-items: center;
+  background: rgba(31, 42, 36, 0.78);
+  backdrop-filter: blur(6px);
+  padding: 1.5rem;
+}
+.gate-overlay[hidden] { display: none; }
+.gate-card {
+  background: var(--card);
+  border-radius: var(--radius);
+  box-shadow: 0 20px 60px rgba(0,0,0,0.35);
+  padding: 2rem 1.8rem;
+  max-width: 440px; width: 100%;
+  text-align: center;
+}
+.gate-card h2 {
+  margin: 0.2rem 0 0.4rem;
+  color: var(--green-deep);
+  font-size: 1.5rem;
+}
+.gate-card > div > p { margin: 0 0 1.3rem; color: var(--muted); font-size: 0.95rem; }
+.gate-roles {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 0.7rem;
+}
+.gate-role-btn {
+  padding: 1rem 0.8rem;
+  border: 2px solid rgba(31, 77, 43, 0.2);
+  background: var(--ivory);
+  border-radius: 10px;
+  font-family: inherit; font-weight: 700; font-size: 1rem;
+  color: var(--charcoal); cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease, transform 0.1s ease;
+  display: flex; flex-direction: column; align-items: center; gap: 0.3rem;
+}
+.gate-role-btn:hover {
+  border-color: var(--green-deep);
+  background: #fff;
+  transform: translateY(-2px);
+}
+.gate-role-emoji { font-size: 1.7rem; }
+.gate-role-btn small {
+  color: var(--muted); font-weight: 400; font-size: 0.78rem;
+}
+.gate-pw-form {
+  display: flex; flex-direction: column; gap: 0.55rem;
+  margin-top: 1rem; text-align: left;
+}
+.gate-pw-form label {
+  font-size: 0.85rem; font-weight: 600; color: var(--green-deep);
+}
+.gate-pw-form input {
+  padding: 0.7rem 0.9rem;
+  border: 1px solid rgba(31, 77, 43, 0.25);
+  border-radius: 8px;
+  font-family: inherit; font-size: 1rem;
+}
+.gate-pw-form input:focus {
+  outline: none;
+  border-color: var(--green-deep);
+  box-shadow: 0 0 0 3px rgba(31, 77, 43, 0.12);
+}
+.gate-pw-form .gate-actions {
+  display: flex; gap: 0.5rem; justify-content: space-between;
+  margin-top: 0.3rem;
+}
+.gate-pw-form button {
+  padding: 0.65rem 1.2rem;
+  font-family: inherit; font-weight: 700; font-size: 0.95rem;
+  border-radius: 8px; cursor: pointer; border: none;
+  transition: background 0.15s ease, transform 0.1s ease;
+}
+.gate-pw-form button[type="submit"] { background: var(--green-deep); color: #fff; }
+.gate-pw-form button[type="submit"]:hover { background: var(--green); transform: translateY(-1px); }
+.gate-back-btn {
+  background: transparent; color: var(--muted); border: 1px solid rgba(0,0,0,0.1) !important;
+}
+.gate-back-btn:hover { background: rgba(0,0,0,0.04); }
+.gate-error {
+  color: #b03030; font-size: 0.85rem; font-weight: 600;
+  min-height: 1.2em; margin: 0;
+}
+@keyframes gate-shake {
+  0%, 100% { transform: translateX(0); }
+  25%      { transform: translateX(-6px); }
+  75%      { transform: translateX(6px); }
+}
+.gate-card.is-shaking { animation: gate-shake 0.3s ease; }
+
+.mode-pill {
+  position: fixed; top: 1rem; right: 1rem; z-index: 100;
+  background: var(--green-deep); color: #fff;
+  padding: 0.5rem 0.9rem; border-radius: 999px;
+  box-shadow: var(--shadow);
+  display: flex; align-items: center; gap: 0.6rem;
+  font-size: 0.85rem; font-weight: 700;
+  transition: background 0.2s ease;
+}
+.mode-pill[hidden] { display: none; }
+.mode-pill.is-visitor { background: var(--muted); }
+.mode-pill button {
+  background: rgba(255,255,255,0.18);
+  color: #fff; border: none;
+  padding: 0.3rem 0.75rem; border-radius: 6px;
+  font-family: inherit; font-weight: 700; font-size: 0.78rem;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+.mode-pill button:hover { background: rgba(255,255,255,0.32); }
+
+</style>
+</head>
+<body>
+  <!-- ---------- Owner gate (UX-level password protection) ---------- -->
+  <div id="gate" class="gate-overlay" hidden aria-modal="true" role="dialog" aria-labelledby="gate-title">
+    <div class="gate-card" id="gate-card">
+      <div data-gate-step="choose">
+        <h2 id="gate-title">Welcome 👋</h2>
+        <p>Are you visiting, or is this you, Luke?</p>
+        <div class="gate-roles">
+          <button type="button" class="gate-role-btn" data-role="visitor">
+            <span class="gate-role-emoji">👀</span>
+            Visitor
+            <small>Just browsing</small>
+          </button>
+          <button type="button" class="gate-role-btn" data-role="owner">
+            <span class="gate-role-emoji">🔑</span>
+            Owner
+            <small>I'd like to edit</small>
+          </button>
+        </div>
+      </div>
+
+      <div data-gate-step="password" hidden>
+        <h2>Owner Access</h2>
+        <p>Enter the password to unlock editing.</p>
+        <form class="gate-pw-form" id="gate-pw-form">
+          <label for="gate-pw">Password</label>
+          <input type="password" id="gate-pw" autocomplete="current-password" required />
+          <p class="gate-error" id="gate-error" aria-live="polite"></p>
+          <div class="gate-actions">
+            <button type="button" class="gate-back-btn" data-gate-back>← Back</button>
+            <button type="submit">Unlock</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div id="mode-pill" class="mode-pill" hidden>
+    <span id="mode-pill-label">🔑 Owner mode</span>
+    <button type="button" id="mode-pill-switch">Switch to Visitor</button>
+  </div>
+
+  <header class="hero">
+    <div class="hero-overlay"></div>
+    <div class="hero-content">
+      <img id="player-photo" class="player-photo" alt="Luke Thomas Selzer" />
+      <p class="eyebrow">Junior Golfer Portfolio</p>
+      <h1 id="player-name">Luke Thomas Selzer</h1>
+      <p class="tagline" id="player-meta">Charlotte, NC</p>
+      <div class="quick-stats">
+        <div class="stat"><span class="stat-num" id="stat-scoring">—</span><span class="stat-label">Scoring Avg</span></div>
+        <div class="stat"><span class="stat-num" id="stat-events">—</span><span class="stat-label">Events</span></div>
+        <div class="stat"><span class="stat-num" id="stat-drip-rank">—</span><span class="stat-label">Drip Golf Rank</span></div>
+        <div class="stat"><span class="stat-num" id="stat-jgs-rank">—</span><span class="stat-label">JGS Rank</span></div>
+        <div class="stat"><span class="stat-num" id="stat-tugr-rank">—</span><span class="stat-label">TUGR Rank</span></div>
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+    <nav class="tabs" role="tablist">
+      <button class="tab active" role="tab" data-tab="personal" aria-selected="true">Personal Bio</button>
+      <button class="tab" role="tab" data-tab="golf" aria-selected="false">Golf Bio</button>
+      <button class="tab" role="tab" data-tab="history" aria-selected="false">Season History</button>
+      <button class="tab" role="tab" data-tab="swing" aria-selected="false">Swing Video</button>
+    </nav>
+
+    <section class="tab-panel active" id="personal" role="tabpanel">
+      <div class="panel-header">
+        <h2>Personal Bio</h2>
+        <button type="button" id="personal-edit-btn" class="swing-ghost-btn owner-only">✏️ Edit</button>
+      </div>
+
+      <div id="personal-view">
+        <ul class="profile-list" id="personal-list"></ul>
+        <p class="muted" id="personal-bio" style="margin-top:1.4rem"></p>
+        <!-- Populated by PersonalBio module from SOCIAL_PLATFORMS.
+             Hidden via CSS :empty when there are no socials to show. -->
+        <ul class="social-links" id="personal-socials" aria-label="Social media links"></ul>
+      </div>
+
+      <form id="personal-edit-form" class="personal-edit-form" hidden>
+        <div class="personal-edit-grid">
+          <label class="field">
+            <span>Name</span>
+            <input type="text" name="name" required />
+          </label>
+          <label class="field">
+            <span>Hometown</span>
+            <input type="text" name="hometown" placeholder="e.g. Charlotte, NC" />
+          </label>
+          <label class="field">
+            <span>Class Year</span>
+            <input type="text" name="class_year" placeholder="e.g. Class of 2031" />
+          </label>
+          <label class="field">
+            <span>Age</span>
+            <input type="text" name="age" placeholder="e.g. Age: 13" />
+          </label>
+          <label class="field full">
+            <span>Photo URL</span>
+            <input type="url" name="photo" placeholder="https://..." />
+          </label>
+          <!-- Auto-generated from SOCIAL_PLATFORMS in JS so adding a new
+               platform is a one-line change. (Open/Closed Principle.) -->
+          <fieldset class="field full socials-fieldset" id="personal-socials-fieldset">
+            <legend>Social Media</legend>
+            <div class="socials-grid" id="personal-socials-grid"></div>
+          </fieldset>
+          <label class="field full">
+            <span>Bio paragraph</span>
+            <textarea name="bio" rows="4"
+              placeholder="A short bio shown on the Personal tab."></textarea>
+          </label>
+        </div>
+        <div class="form-actions">
+          <button type="submit" class="swing-upload-btn">💾 Save</button>
+          <button type="button" id="personal-cancel-btn" class="swing-ghost-btn">Cancel</button>
+          <button type="button" id="personal-reset-btn" class="swing-ghost-btn personal-reset">Reset to Defaults</button>
+        </div>
+      </form>
+    </section>
+
+    <section class="tab-panel" id="golf" role="tabpanel">
+      <h2>Golf Bio</h2>
+
+      <h3>Current Season Rankings</h3>
+      <ul class="profile-list" id="rankings-list"></ul>
+
+      <h3>Scoring Profile (Per-Hole Averages)</h3>
+      <ul class="profile-list" id="par-list"></ul>
+
+      <h3>Scoring Types</h3>
+      <ul class="profile-list" id="scoring-list"></ul>
+    </section>
+
+    <section class="tab-panel" id="history" role="tabpanel">
+      <h2>Season History</h2>
+      <p class="muted">Pick a season to view tournaments — most recent first.</p>
+
+      <div class="year-selector" role="tablist" aria-label="Season">
+        <button class="year-btn active" type="button" role="tab" data-year="2024" aria-selected="true">2024</button>
+        <button class="year-btn" type="button" role="tab" data-year="2025" aria-selected="false">2025</button>
+        <button class="year-btn" type="button" role="tab" data-year="2026" aria-selected="false">2025-26</button>
+      </div>
+
+      <div class="year-panel active" data-year-panel="2024" role="tabpanel">
+        <h3>2024 Season</h3>
+        <div class="user-controls owner-only" data-year="2024"></div>
+        <div class="season-summary" id="summary-2024"></div>
+        <div class="tournaments" id="tournaments-2024"></div>
+      </div>
+
+      <div class="year-panel" data-year-panel="2025" role="tabpanel">
+        <h3>2025 Season</h3>
+        <div class="user-controls owner-only" data-year="2025"></div>
+        <div class="season-summary" id="summary-2025"></div>
+        <div class="tournaments" id="tournaments-2025"></div>
+      </div>
+
+      <div class="year-panel" data-year-panel="2026" role="tabpanel">
+        <h3>2025-26 Season</h3>
+        <div class="user-controls owner-only" data-year="2026"></div>
+        <div class="season-summary" id="summary-2026"></div>
+        <div class="tournaments" id="tournaments-2026"></div>
+      </div>
+    </section>
+
+    <section class="tab-panel" id="swing" role="tabpanel">
+      <h2>Swing Videos</h2>
+
+      <!-- ===== Swing Videos =====
+           Single equal-weight gallery (no featured/curated split — all
+           videos render in the same grid). Public read, owner write.
+           Wired by window.SwingVideos. The Add controls live at the
+           bottom and are .owner-only so visitors get a clean gallery. -->
+      <div class="swing-community">
+        <div id="swing-community-grid" class="swing-community-grid">
+          <p class="swing-empty">Loading swing videos…</p>
+        </div>
+
+        <!-- ===== Owner-only Add controls =====
+             Lives below the gallery on purpose: visitors see the videos
+             first, the owner sees the management UI after scrolling past
+             the content they curated. The form auto-hides (replaced by
+             #swing-limit-message) once the gallery hits MAX_VIDEOS — the
+             owner has to delete one before adding another. -->
+        <div class="owner-only swing-owner-controls">
+          <h3 class="swing-section-heading" id="swing-owner-heading">Add a Swing Video</h3>
+        </div>
+
+        <p id="swing-limit-message" class="swing-limit-message owner-only" hidden role="status">
+          🛑 Gallery is full (limit: <span id="swing-limit-max">2</span>). Delete a video above to add another.
+        </p>
+
+        <form id="swing-upload-form" class="swing-upload-form owner-only" autocomplete="off">
+          <label class="swing-field">
+            <span>Video title *</span>
+            <input type="text" name="title" maxlength="100" required
+                   placeholder="e.g. Driver — face-on view">
+          </label>
+
+          <!-- Both inputs are always visible. The submit handler picks
+               whichever one the owner filled in (file wins if both are
+               provided, since picking a file is the more deliberate
+               action). Removes a layer of state (no radio mode) — YAGNI. -->
+          <label class="swing-field">
+            <span>📎 Paste a video link (YouTube, Vimeo, or public .mp4/.webm)</span>
+            <input type="url" name="videoUrl" maxlength="500"
+                   placeholder="https://www.youtube.com/watch?v=…">
+          </label>
+
+          <div class="swing-or-divider" aria-hidden="true">— or —</div>
+
+          <label class="swing-field">
+            <span>📁 Choose a file from this device (.mp4, .webm, or .mov)</span>
+            <!-- accept is broad on purpose: iPhones record .mov (video/quicktime).
+                 Files upload directly to Supabase Storage — no Netlify Functions
+                 payload cap, no in-browser re-encode dance. -->
+            <input type="file" name="file" accept="video/*">
+          </label>
+
+          <div class="swing-upload-actions">
+            <button type="submit" class="swing-upload-btn">⬆️ Add Video</button>
+            <span class="swing-upload-status" id="swing-upload-status" role="status" aria-live="polite"></span>
+          </div>
+        </form>
+      </div>
+    </section>
+  </main>
+
+  <script>
+// AUTO-GENERATED by parse.py — do not edit by hand.
+const PORTFOLIO_DATA = {
+  "seasons": {
+    "2024": [
+      {
+        "date": "11/30/2024",
+        "name": "14th Annual TJGT Bullet & Peggy Bell Thanksgiving Classic",
+        "place": "T27",
+        "division": "Boys 12-14",
+        "points": "62900.00",
+        "total": "161 (+17)",
+        "rounds": [
+          {
+            "round": "1",
+            "score": "82 (+10)",
+            "course": "Pinehurst Resort & Country Club - #5"
+          },
+          {
+            "round": "2",
+            "score": "79 (+7)",
+            "course": "Pinehurst Resort & Country Club - #5"
+          }
+        ]
+      },
+      {
+        "date": "10/19/2024",
+        "name": "TJGT 8th Annual Western Carolina Junior Classic",
+        "place": "T4",
+        "division": "Boys 9-11",
+        "points": "374000.00",
+        "total": "149 (+7)",
+        "rounds": [
+          {
+            "round": "1",
+            "score": "77 (+6)",
+            "course": "Country Club of Salisbury"
+          },
+          {
+            "round": "2",
+            "score": "72 (+1)",
+            "course": "Country Club of Salisbury"
+          }
+        ]
+      },
+      {
+        "date": "9/14/2024",
+        "name": "\"The Don\" Team Shootout Points",
+        "place": "T30",
+        "division": "Boys 12-14",
+        "points": "56525.00",
+        "total": "0 (E)",
+        "rounds": []
+      },
+      {
+        "date": "7/16/2024",
+        "name": "Drip Golf \"The Grant Horvat and Friends\" Junior Open",
+        "place": "T17",
+        "division": "Boys 9-11",
+        "points": "123250.00",
+        "total": "158 (+14)",
+        "rounds": [
+          {
+            "round": "1",
+            "score": "84 (+12)",
+            "course": "Forest Creek Golf Club - North"
+          },
+          {
+            "round": "2",
+            "score": "74 (+2)",
+            "course": "Forest Creek Golf Club - North"
+          }
+        ]
+      },
+      {
+        "date": "6/24/2024",
+        "name": "Drip Golf 2nd Annual \"Justin Williams\" Junior Open",
+        "place": "13",
+        "division": "Boys 9-11",
+        "points": "178500.00",
+        "total": "160 (+16)",
+        "rounds": [
+          {
+            "round": "1",
+            "score": "81 (+9)",
+            "course": "Prestonwood Country Club - Highlands"
+          },
+          {
+            "round": "2",
+            "score": "79 (+7)",
+            "course": "Prestonwood Country Club - Highlands"
+          }
+        ]
+      },
+      {
+        "date": "6/10/2024",
+        "name": "TJGT \"US Open\" Junior Open at 12 Oaks (Major)",
+        "place": "11",
+        "division": "Boys 9-11",
+        "points": "425000.00",
+        "total": "166 (+22)",
+        "rounds": [
+          {
+            "round": "1",
+            "score": "87 (+15)",
+            "course": "The Club at 12 Oaks"
+          },
+          {
+            "round": "2",
+            "score": "79 (+7)",
+            "course": "The Club at 12 Oaks"
+          }
+        ]
+      },
+      {
+        "date": "5/25/2024",
+        "name": "TJGT 41st Annual Mid Pines Junior--9-11 year old division",
+        "place": "T7",
+        "division": "Boys 9-11",
+        "points": "264916.67",
+        "total": "150 (+7)",
+        "rounds": [
+          {
+            "round": "1",
+            "score": "80 (+8)",
+            "course": "Longleaf Golf & Family Club"
+          },
+          {
+            "round": "2",
+            "score": "70 (-1)",
+            "course": "Southern Pines Golf Club - Donald Ross"
+          }
+        ]
+      },
+      {
+        "date": "5/11/2024",
+        "name": "TJGT \"PGA Championship\" Junior Open at Cutter Creek (Major)",
+        "place": "T7",
+        "division": "Boys 9-11",
+        "points": "548250.00",
+        "total": "152 (+8)",
+        "rounds": [
+          {
+            "round": "1",
+            "score": "75 (+3)",
+            "course": "Cutter Creek Golf Club"
+          },
+          {
+            "round": "2",
+            "score": "77 (+5)",
+            "course": "Cutter Creek Golf Club"
+          }
+        ]
+      },
+      {
+        "date": "4/27/2024",
+        "name": "TJGT 10th Annual \"Players Championship\" Junior Open at Bryan Park",
+        "place": "11",
+        "division": "Boys 9-11",
+        "points": "212500.00",
+        "total": "161 (+17)",
+        "rounds": [
+          {
+            "round": "1",
+            "score": "83 (+11)",
+            "course": "Bryan Park Golf Club - Champions"
+          },
+          {
+            "round": "2",
+            "score": "78 (+6)",
+            "course": "Bryan Park Golf Club - Champions"
+          }
+        ]
+      },
+      {
+        "date": "4/20/2024",
+        "name": "TJGT 14th Annual Wolfpack Junior Open at Lonnie Poole",
+        "place": "T15",
+        "division": "Boys 9-11",
+        "points": "148750.00",
+        "total": "163 (+19)",
+        "rounds": [
+          {
+            "round": "1",
+            "score": "84 (+12)",
+            "course": "Lonnie Poole Golf Course"
+          },
+          {
+            "round": "2",
+            "score": "79 (+7)",
+            "course": "Lonnie Poole Golf Course"
+          }
+        ]
+      },
+      {
+        "date": "4/6/2024",
+        "name": "TJGT 2nd Annual \"JR. MASTERS\" at Red Bridge (Major)",
+        "place": "T10",
+        "division": "Boys 9-11",
+        "points": "425000.00",
+        "total": "163 (+19)",
+        "rounds": [
+          {
+            "round": "1",
+            "score": "82 (+10)",
+            "course": "Red Bridge Golf and Country Club"
+          },
+          {
+            "round": "2",
+            "score": "81 (+9)",
+            "course": "Red Bridge Golf and Country Club"
+          }
+        ]
+      },
+      {
+        "date": "3/2/2024",
+        "name": "TJGT 2nd Annual Longleaf Junior Open",
+        "place": "15",
+        "division": "Boys 9-11",
+        "points": "153000.00",
+        "total": "161 (+17)",
+        "rounds": [
+          {
+            "round": "1",
+            "score": "88 (+16)",
+            "course": "Longleaf Golf & Family Club"
+          },
+          {
+            "round": "2",
+            "score": "73 (+1)",
+            "course": "Longleaf Golf & Family Club"
+          }
+        ]
+      }
+    ],
+    "2025": [
+      {
+        "date": "8/9/2025",
+        "name": "Drip Golf Series \"Johnson Wagner\" and Friends Hokie Junior Open",
+        "place": "T12",
+        "division": "Middle School Boys",
+        "points": "374000.00",
+        "total": "158 (+14)",
+        "rounds": [
+          {
+            "round": "1",
+            "score": "78 (+6)",
+            "course": "River Course of Virginia Tech - River of Virginia Tech"
+          },
+          {
+            "round": "2",
+            "score": "80 (+8)",
+            "course": "River Course of Virginia Tech - River of Virginia Tech"
+          }
+        ]
+      },
+      {
+        "date": "8/5/2025",
+        "name": "Drip Golf Series 'Grayson Murray\" Junior Championship",
+        "place": "T16",
+        "division": "Middle School Boys",
+        "points": "272000.00",
+        "total": "165 (+21)",
+        "rounds": [
+          {
+            "round": "1",
+            "score": "79 (+7)",
+            "course": "Mid Pines Inn & Golf Club"
+          },
+          {
+            "round": "2",
+            "score": "86 (+14)",
+            "course": "Mid Pines Inn & Golf Club"
+          }
+        ]
+      },
+      {
+        "date": "5/25/2025",
+        "name": "Drip Golf Series \"National Players Championship\" at MidPines & Southern Pines CC",
+        "place": "40",
+        "division": "Middle School Boys",
+        "points": "71400.00",
+        "total": "175 (+32)",
+        "rounds": [
+          {
+            "round": "1",
+            "score": "85 (+14)",
+            "course": "Southern Pines Golf Club - Donald Ross"
+          },
+          {
+            "round": "2",
+            "score": "90 (+18)",
+            "course": "Mid Pines Inn & Golf Club"
+          }
+        ]
+      },
+      {
+        "date": "5/17/2025",
+        "name": "TJGT \"Treyburn\" Classic",
+        "place": "11",
+        "division": "Middle School Boys",
+        "points": "212500.00",
+        "total": "164 (+20)",
+        "rounds": [
+          {
+            "round": "1",
+            "score": "84 (+12)",
+            "course": "Treyburn Country Club"
+          },
+          {
+            "round": "2",
+            "score": "80 (+8)",
+            "course": "Treyburn Country Club"
+          }
+        ]
+      },
+      {
+        "date": "5/3/2025",
+        "name": "TJGT 2nd Annual \"Cutter Creek\" Junior Open at Cutter Creek",
+        "place": "T15",
+        "division": "Middle School Boys",
+        "points": "140250.00",
+        "total": "155 (+11)",
+        "rounds": [
+          {
+            "round": "1",
+            "score": "76 (+4)",
+            "course": "Cutter Creek Golf Club"
+          },
+          {
+            "round": "2",
+            "score": "79 (+7)",
+            "course": "Cutter Creek Golf Club"
+          }
+        ]
+      },
+      {
+        "date": "4/5/2025",
+        "name": "TJGT 3rd Annual \"Jr Masters\" at Woodlake Country Club",
+        "place": "T25",
+        "division": "Middle School Boys",
+        "points": "71400.00",
+        "total": "168 (+24)",
+        "rounds": [
+          {
+            "round": "1",
+            "score": "84 (+12)",
+            "course": "Woodlake Country Club - Maples"
+          },
+          {
+            "round": "2",
+            "score": "84 (+12)",
+            "course": "Woodlake Country Club - Maples"
+          }
+        ]
+      },
+      {
+        "date": "3/8/2025",
+        "name": "TJGT 3rd Annual Longleaf Junior Open",
+        "place": "T42",
+        "division": "Middle School Boys",
+        "points": "31450.00",
+        "total": "167 (+23)",
+        "rounds": [
+          {
+            "round": "1",
+            "score": "82 (+10)",
+            "course": "Longleaf Golf & Family Club"
+          },
+          {
+            "round": "2",
+            "score": "85 (+13)",
+            "course": "Longleaf Golf & Family Club"
+          }
+        ]
+      },
+      {
+        "date": "3/1/2025",
+        "name": "TJGT 15th Annual ACC Junior Open at Cutter Creek",
+        "place": "14",
+        "division": "Middle School Boys",
+        "points": "161500.00",
+        "total": "162 (+18)",
+        "rounds": [
+          {
+            "round": "1",
+            "score": "82 (+10)",
+            "course": "Cutter Creek Golf Club"
+          },
+          {
+            "round": "2",
+            "score": "80 (+8)",
+            "course": "Cutter Creek Golf Club"
+          }
+        ]
+      },
+      {
+        "date": "2/15/2025",
+        "name": "Drip Golf Series \"Kick Off\" 2025 at the Ocean Course at Kiawah Island",
+        "place": "T12",
+        "division": "Middle School Boys",
+        "points": "357000.00",
+        "total": "102 (+10)",
+        "rounds": [
+          {
+            "round": "1",
+            "score": "80 (+8)",
+            "course": "Kiawah Island Golf Resort - The Ocean"
+          },
+          {
+            "round": "2",
+            "score": "22 (+2)",
+            "course": "Kiawah Island Golf Resort - Osprey Point"
+          }
+        ]
+      }
+    ],
+    "2026": [
+      {
+        "date": "4/25/2026",
+        "name": "Drip Golf Series 16th Annual \"Wolfpack\" Junior Invitational at Lonnie Poole",
+        "place": "T14",
+        "division": "Middle School Boys",
+        "points": "29.00",
+        "total": "158 (+14)",
+        "rounds": [
+          {
+            "round": "1",
+            "score": "79 (+7)",
+            "course": "Lonnie Poole Golf Course"
+          },
+          {
+            "round": "2",
+            "score": "79 (+7)",
+            "course": "Lonnie Poole Golf Course"
+          }
+        ]
+      },
+      {
+        "date": "3/28/2026",
+        "name": "DGT Junior Open at Benvenue Country Club",
+        "place": "8",
+        "division": "Middle School Boys",
+        "points": "14.00",
+        "total": "164 (+20)",
+        "rounds": [
+          {
+            "round": "1",
+            "score": "79 (+7)",
+            "course": "Benvenue Country Club"
+          },
+          {
+            "round": "2",
+            "score": "85 (+13)",
+            "course": "Benvenue Country Club"
+          }
+        ]
+      },
+      {
+        "date": "3/7/2026",
+        "name": "DGT 4th Longleaf Junior Open",
+        "place": "10",
+        "division": "Middle School Boys",
+        "points": "52.00",
+        "total": "155 (+11)",
+        "rounds": [
+          {
+            "round": "1",
+            "score": "77 (+5)",
+            "course": "Longleaf Golf & Family Club"
+          },
+          {
+            "round": "2",
+            "score": "78 (+6)",
+            "course": "Longleaf Golf & Family Club"
+          }
+        ]
+      },
+      {
+        "date": "12/13/2025",
+        "name": "DGT Tarheel Junior Open at Woodlake CC",
+        "place": "5",
+        "division": "Middle School Boys",
+        "points": "38.00",
+        "total": "155 (+13)",
+        "rounds": [
+          {
+            "round": "1",
+            "score": "83 (+12)",
+            "course": "Woodlake Country Club - Maples"
+          },
+          {
+            "round": "2",
+            "score": "72 (+1)",
+            "course": "Woodlake Country Club - Maples"
+          }
+        ]
+      },
+      {
+        "date": "11/29/2025",
+        "name": "Drip Golf Series 15th Annual Bullet & Peggy Bell Thanksgiving Classic at Pine Needles & Mid Pines",
+        "place": "15",
+        "division": "Middle School Boys",
+        "points": "32.00",
+        "total": "170 (+27)",
+        "rounds": [
+          {
+            "round": "1",
+            "score": "79 (+7)",
+            "course": "Mid Pines Inn & Golf Club"
+          },
+          {
+            "round": "2",
+            "score": "91 (+20)",
+            "course": "Pine Needles Lodge and Golf Club"
+          }
+        ]
+      },
+      {
+        "date": "11/22/2025",
+        "name": "Drip Golf Series Forest Creek Junior Open",
+        "place": "T9",
+        "division": "Middle School Boys",
+        "points": "38.00",
+        "total": "166 (+22)",
+        "rounds": [
+          {
+            "round": "1",
+            "score": "86 (+14)",
+            "course": "Forest Creek Golf Club - North"
+          },
+          {
+            "round": "2",
+            "score": "80 (+8)",
+            "course": "Forest Creek Golf Club - North"
+          }
+        ]
+      },
+      {
+        "date": "10/25/2025",
+        "name": "DGT 9th Western Carolina Junior Open at CC of Salisbury",
+        "place": "T8",
+        "division": "Middle School Boys",
+        "points": "21.00",
+        "total": "157 (+15)",
+        "rounds": [
+          {
+            "round": "1",
+            "score": "77 (+6)",
+            "course": "Country Club of Salisbury"
+          },
+          {
+            "round": "2",
+            "score": "80 (+9)",
+            "course": "Country Club of Salisbury"
+          }
+        ]
+      },
+      {
+        "date": "9/20/2025",
+        "name": "Drip Golf Series \"Junior Showcase\" at 12 Oaks",
+        "place": "9",
+        "division": "Middle School Boys",
+        "points": "32.00",
+        "total": "173 (+29)",
+        "rounds": [
+          {
+            "round": "1",
+            "score": "85 (+13)",
+            "course": "The Club at 12 Oaks"
+          },
+          {
+            "round": "2",
+            "score": "88 (+16)",
+            "course": "The Club at 12 Oaks"
+          }
+        ]
+      }
+    ]
+  },
+  "personal": {
+    "name": "Luke Thomas Selzer",
+    "photo": "",
+    "hometown": "Charlotte, NC",
+    "class_year": "Class of 2031",
+    "age": "Age: 13",
+    "instagram": ""
+  },
+  "golf": {
+    "stats": {
+      "Drip Golf Rank": "30",
+      "Overall JGS Rank": "10557",
+      "TUGR Rank": "8571",
+      "Scoring Average": "81.12"
+    },
+    "rankings": {
+      "division": "Middle School Boys",
+      "Rank": "31",
+      "Points": "256.00",
+      "Differential": "10.61",
+      "Scoring Average": "81.12",
+      "Events": "8"
+    },
+    "scoring": {
+      "Par 3's": "3.50",
+      "Par 4's": "4.60",
+      "Par 5's": "5.37",
+      "Eagles": "0 (--)",
+      "Birdies": "12 (4.17%)",
+      "Pars": "147 (51.04%)",
+      "Bogeys": "101 (35.07%)",
+      "Doubles": "23 (7.99%)",
+      "Others": "5 (1.74%)"
+    }
+  }
+};
+
+</script>
+  <script>
+/* ======================================================================
+   user-scores.js — let users add/import their own tournaments per season.
+   Persists to localStorage. Plays nicely with app.js's rerenderSeason hook.
+   ====================================================================== */
+
+(function () {
+  "use strict";
+
+  // ⚠️ The PW_KEY must match the one used in OwnerGate (kept duplicated to
+  // avoid a cross-module dependency between two IIFEs that load in order).
+  const PW_KEY  = "ltselzer_owner_pw";
+  const SEASONS = ["2024", "2025", "2026"];
+  const API     = "/api/tournaments";
+
+  // ---------- In-memory cache ----------
+  // Populated by init() via fetch, kept in sync by add/delete.
+  // Render functions read this synchronously so app.js doesn't have to
+  // become async-aware. Single source of truth on the client.
+  let cache = Object.fromEntries(SEASONS.map((y) => [y, []]));
+
+  function getOwnerPassword() {
+    return sessionStorage.getItem(PW_KEY) || "";
+  }
+
+  function ownerHeaders() {
+    return { "X-Owner-Password": getOwnerPassword() };
+  }
+
+  function inferYear(dateStr) {
+    const m = (dateStr || "").match(/(\d{4})/);
+    return m ? m[1] : SEASONS[SEASONS.length - 1];
+  }
+
+  // Bucket the flat server list into per-year arrays and refresh the cache.
+  async function fetchAll() {
+    const fresh = Object.fromEntries(SEASONS.map((y) => [y, []]));
+    try {
+      const res = await fetch(API, { cache: "no-store" });
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      const body = await res.json();
+      const list = Array.isArray(body.tournaments) ? body.tournaments : [];
+      for (const t of list) {
+        const year = t.year || inferYear(t.date);
+        if (!fresh[year]) fresh[year] = [];
+        fresh[year].push({ ...t, _userAdded: true });
+      }
+    } catch (err) {
+      console.warn("UserScores: couldn't load tournaments from API:", err);
+    }
+    cache = fresh;
+  }
+
+  function loadSeason(year) {
+    return (cache[year] || []).slice();
+  }
+
+  async function addTournament(year, tournament) {
+    const res = await fetch(API, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...ownerHeaders() },
+      body:   JSON.stringify({ ...tournament, year }),
+    });
+    if (res.status === 401) {
+      // Stale or missing password — drop owner mode and re-prompt.
+      if (window.OwnerGate) window.OwnerGate.promptForOwner();
+      throw new Error("Session expired — please re-enter the password.");
+    }
+    if (!res.ok) {
+      const errBody = await res.json().catch(() => ({}));
+      throw new Error(errBody.error || ("Save failed (HTTP " + res.status + ")"));
+    }
+    const body  = await res.json();
+    const saved = { ...body.tournament, _userAdded: true };
+    cache[year] = cache[year] || [];
+    cache[year].unshift(saved);
+  }
+
+  async function deleteTournament(year, id) {
+    const res = await fetch(`${API}?id=${encodeURIComponent(id)}`, {
+      method: "DELETE",
+      headers: ownerHeaders(),
+    });
+    if (res.status === 401) {
+      if (window.OwnerGate) window.OwnerGate.promptForOwner();
+      throw new Error("Session expired — please re-enter the password.");
+    }
+    if (!res.ok && res.status !== 404) {
+      const errBody = await res.json().catch(() => ({}));
+      throw new Error(errBody.error || ("Delete failed (HTTP " + res.status + ")"));
+    }
+    cache[year] = (cache[year] || []).filter((t) => t._id !== id);
+  }
+
+  // ---------- Form template (built once, cloned per season) ----------
+  function controlsHTML() {
+    return `
+      <div class="user-toolbar">
+        <button type="button" class="btn btn-primary" data-action="show-form">+ Add Tournament</button>
+      </div>
+
+      <form class="user-form" hidden>
+        <div class="form-row">
+          <label class="grow">
+            <span>Tournament Name *</span>
+            <input type="text" name="name" required placeholder="e.g. Spring Junior Open" />
+          </label>
+          <label>
+            <span>Date *</span>
+            <input type="text" name="date" required placeholder="M/D/YYYY" pattern="\\d{1,2}/\\d{1,2}/\\d{2,4}" />
+          </label>
+        </div>
+        <div class="form-row">
+          <label class="grow">
+            <span>Division</span>
+            <input type="text" name="division" placeholder="e.g. High School Boys" />
+          </label>
+          <label>
+            <span>Place</span>
+            <input type="text" name="place" placeholder="e.g. T6, 1, 12" />
+          </label>
+          <label>
+            <span>Total Score</span>
+            <input type="text" name="total" placeholder="e.g. 151 (+7)" />
+          </label>
+        </div>
+
+        <fieldset class="rounds-fieldset">
+          <legend>Rounds</legend>
+          <div class="round-rows"></div>
+          <button type="button" class="btn btn-small" data-action="add-round">+ Add Round</button>
+        </fieldset>
+
+        <div class="form-actions">
+          <button type="button" class="btn btn-ghost"   data-action="cancel-form">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save Tournament</button>
+        </div>
+        <p class="form-hint muted">* required. Score format like <code>75 (+3)</code> keeps the over/under-par pill colored correctly.</p>
+      </form>
+
+    `;
+  }
+
+  function roundRowHTML(idx) {
+    return `
+      <div class="round-row">
+        <input type="text" name="round-num"    value="${idx}"  placeholder="#" aria-label="Round number" />
+        <input type="text" name="round-score"                  placeholder="75 (+3)" aria-label="Round score" />
+        <input type="text" name="round-course"                 placeholder="Course name" aria-label="Course" />
+        <button type="button" class="btn-icon" data-action="remove-round" aria-label="Remove round">×</button>
+      </div>
+    `;
+  }
+
+  // ---------- Wiring per season ----------
+  function wireSeason(year, onChange) {
+    const root = document.querySelector(`.user-controls[data-year="${year}"]`);
+    if (!root) return;
+
+    root.innerHTML = controlsHTML();
+    const form = root.querySelector(".user-form");
+    const roundRows = root.querySelector(".round-rows");
+
+    const showForm = () => { form.hidden = false; };
+    const hideForm = () => { form.hidden = true; form.reset(); roundRows.innerHTML = ""; addRound(); };
+
+    function addRound() {
+      const next = roundRows.children.length + 1;
+      roundRows.insertAdjacentHTML("beforeend", roundRowHTML(next));
+    }
+    addRound();  // start with one empty round row
+
+    // Single delegated click handler for the whole control block.
+    root.addEventListener("click", (e) => {
+      const btn = e.target.closest("[data-action]");
+      if (!btn) return;
+      const action = btn.dataset.action;
+
+      switch (action) {
+        case "show-form":   showForm(); break;
+        case "cancel-form": hideForm(); break;
+        case "add-round":   addRound(); break;
+        case "remove-round":
+          if (roundRows.children.length > 1) btn.closest(".round-row").remove();
+          break;
+      }
+    });
+
+    const submitBtn = form.querySelector('button[type="submit"]');
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const tournament = collectFormData(form);
+      if (!tournament.name || !tournament.date) return;
+
+      submitBtn.disabled    = true;
+      const originalText    = submitBtn.textContent;
+      submitBtn.textContent = "Saving…";
+      try {
+        await addTournament(year, tournament);
+        hideForm();
+        onChange(year);
+      } catch (err) {
+        alert("Couldn't save the tournament:\n" + err.message);
+      } finally {
+        submitBtn.disabled    = false;
+        submitBtn.textContent = originalText;
+      }
+    });
+  }
+
+  function collectFormData(form) {
+    const data = new FormData(form);
+    const rounds = [];
+    const rows = form.querySelectorAll(".round-row");
+    rows.forEach((row, idx) => {
+      const num    = row.querySelector('[name="round-num"]').value.trim() || String(idx + 1);
+      const score  = row.querySelector('[name="round-score"]').value.trim();
+      const course = row.querySelector('[name="round-course"]').value.trim();
+      if (score || course) rounds.push({ round: num, score, course });
+    });
+
+    return {
+      date:     (data.get("date")     || "").trim(),
+      name:     (data.get("name")     || "").trim(),
+      division: (data.get("division") || "").trim(),
+      place:    (data.get("place")    || "").trim(),
+      total:    (data.get("total")    || "").trim(),
+      points:   "",
+      rounds,
+    };
+  }
+
+  // ---------- Public API ----------
+  // Render functions stay sync (they read from the in-memory cache); only
+  // mutation/load operations are async. Wrap delete with friendly error UI
+  // so callers can fire-and-forget if they don't want to handle promises.
+  window.UserScores = {
+    SEASONS,
+    loadSeason,
+    async deleteTournament(year, id) {
+      try { await deleteTournament(year, id); }
+      catch (err) { alert("Couldn't delete:\n" + err.message); throw err; }
+    },
+    async init(onChange) {
+      await fetchAll();
+      SEASONS.forEach((year) => wireSeason(year, onChange));
+    },
+  };
+})();
+
+</script>
+  <script>
+/* ======================================================================
+   app.js — render Luke Thomas's portfolio from PORTFOLIO_DATA, wire up tabs.
+   ====================================================================== */
+
+(function () {
+  "use strict";
+
+  const $ = (sel) => document.querySelector(sel);
+  const el = (tag, cls, text) => {
+    const node = document.createElement(tag);
+    if (cls) node.className = cls;
+    if (text != null) node.textContent = text;
+    return node;
+  };
+
+  // ---------- Total parsing ----------
+  // "151 (+7)" → { score: 151, diff: "+7", diffNum: 7 }
+  // "144 (E)"  → { score: 144, diff: "E",  diffNum: 0 }
+  function parseTotal(total) {
+    const m = /^(\d+)\s*\(([^)]+)\)/.exec(total || "");
+    if (!m) return { score: null, diff: "", diffNum: null };
+    const diffStr = m[2].trim();
+    let diffNum = 0;
+    if (diffStr === "E") diffNum = 0;
+    else diffNum = parseInt(diffStr, 10);
+    return { score: parseInt(m[1], 10), diff: diffStr, diffNum };
+  }
+
+  function diffClass(diffNum) {
+    if (diffNum == null) return "";
+    if (diffNum < 0)  return "diff-under";
+    if (diffNum === 0) return "diff-even";
+    return "diff-over";
+  }
+
+  // ---------- Hero ----------
+  function renderHero(data) {
+    const photo = $("#player-photo");
+    photo.src = data.personal.photo;
+    photo.alt = data.personal.name;
+    photo.onerror = () => { photo.style.display = "none"; };
+
+    $("#player-name").textContent = data.personal.name;
+    $("#player-meta").textContent =
+      [data.personal.hometown, data.personal.class_year, data.personal.age]
+        .filter(Boolean).join(" • ");
+
+    $("#stat-scoring").textContent = data.golf.stats["Scoring Average"] || "—";
+    $("#stat-events").textContent  = data.golf.rankings.Events || "—";
+
+    const fmtRank = v => (v && v !== "--") ? `#${v}` : "—";
+    $("#stat-drip-rank").textContent = fmtRank(data.golf.stats["Drip Golf Rank"]);
+    $("#stat-jgs-rank").textContent  = fmtRank(data.golf.stats["Overall JGS Rank"]);
+    $("#stat-tugr-rank").textContent = fmtRank(data.golf.stats["TUGR Rank"]);
+  }
+
+  // ---------- Personal bio ----------
+  const DEFAULT_BIO_TEXT =
+    "13-year-old junior golfer out of Charlotte, North Carolina. Member of the " +
+    "Class of 2031, currently competing in the Middle School Boys division on " +
+    "the Drip Golf Tour.";
+
+  // ---------- Social media platforms ----------
+  // Single source of truth: drives BOTH the edit form (owner) and the
+  // visitor-facing chip row. Add a new network here and it appears in
+  // both places automatically. (DRY + Open/Closed.)
+  //   key         — also used as the form field name + PORTFOLIO_DATA.personal key
+  //   label       — shown on the form input + as the link's aria-label
+  //   icon        — emoji shown on the visitor-side pill
+  //   urlPrefix   — used to build the URL when the owner enters a bare handle
+  //   handlePrefix— optional char prepended to handle display (e.g. "@")
+  const SOCIAL_PLATFORMS = [
+    { key: "instagram", label: "Instagram",   icon: "📷", urlPrefix: "https://instagram.com/",   handlePrefix: "@" },
+    { key: "twitter",   label: "X / Twitter", icon: "🐦", urlPrefix: "https://x.com/",            handlePrefix: "@" },
+    { key: "tiktok",    label: "TikTok",      icon: "🎵", urlPrefix: "https://tiktok.com/@",      handlePrefix: "@" },
+    { key: "youtube",   label: "YouTube",     icon: "▶️", urlPrefix: "https://youtube.com/@",     handlePrefix: "@" },
+    { key: "facebook",  label: "Facebook",    icon: "📘", urlPrefix: "https://facebook.com/",     handlePrefix: ""  },
+    { key: "linkedin",  label: "LinkedIn",    icon: "💼", urlPrefix: "https://linkedin.com/in/",  handlePrefix: ""  },
+    { key: "website",   label: "Website",     icon: "🔗", urlPrefix: "https://",                  handlePrefix: ""  },
+  ];
+
+  // Accepts either a full URL or a handle (with or without @) and returns
+  // { href, label } — or null when the input is empty/unusable. Centralizing
+  // normalization means callers never have to think about it (DRY).
+  function normalizeSocial(raw, platform) {
+    const v = (raw || "").trim();
+    if (!v) return null;
+    if (/^https?:\/\//i.test(v)) {
+      const tail = v.replace(/\/+$/, "").split("/").pop() || v;
+      const cleaned = tail.replace(/^@+/, "");
+      return { href: v, label: (platform.handlePrefix || "") + cleaned };
+    }
+    const handle = v.replace(/^@+/, "");
+    return {
+      href: platform.urlPrefix + handle,
+      label: (platform.handlePrefix || "") + handle,
+    };
+  }
+
+  function renderPersonal(data) {
+    const list = $("#personal-list");
+    list.innerHTML = "";
+    const items = [
+      ["Name",       data.personal.name],
+      ["Hometown",   data.personal.hometown],
+      ["Age",        (data.personal.age || "").replace(/^Age:\s*/i, "")],
+      ["Class Year", data.personal.class_year],
+    ];
+    items.forEach(([label, value]) => {
+      if (!value) return;
+      const li = el("li");
+      li.appendChild(el("span", "label", label));
+      li.appendChild(el("span", null, value));
+      list.appendChild(li);
+    });
+
+    const bioEl = $("#personal-bio");
+    if (bioEl) bioEl.textContent = data.personal.bio || DEFAULT_BIO_TEXT;
+
+    renderSocials(data);
+  }
+
+  // Render the visitor-facing row of social pills. Driven entirely by
+  // SOCIAL_PLATFORMS so this function never needs to be touched when
+  // a new platform is added.
+  function renderSocials(data) {
+    const host = document.getElementById("personal-socials");
+    if (!host) return;
+    host.innerHTML = "";
+    SOCIAL_PLATFORMS.forEach((platform) => {
+      const social = normalizeSocial(data.personal[platform.key], platform);
+      if (!social) return;
+      const li = document.createElement("li");
+      const a = document.createElement("a");
+      a.className = "social-link";
+      a.href = social.href;
+      a.target = "_blank";
+      a.rel = "noopener noreferrer";
+      a.setAttribute("aria-label", `${platform.label}: ${social.label}`);
+      const icon = document.createElement("span");
+      icon.className = "social-icon";
+      icon.setAttribute("aria-hidden", "true");
+      icon.textContent = platform.icon;
+      const text = document.createElement("span");
+      text.textContent = platform.label;
+      a.appendChild(icon);
+      a.appendChild(text);
+      li.appendChild(a);
+      host.appendChild(li);
+    });
+  }
+
+  // ---------- Golf bio ----------
+  function renderGolf(data) {
+    const fillList = (id, entries) => {
+      const list = $(id);
+      list.innerHTML = "";
+      entries.forEach(([label, value]) => {
+        if (value == null || value === "") return;
+        const li = el("li");
+        li.appendChild(el("span", "label", label));
+        li.appendChild(el("span", null, value));
+        list.appendChild(li);
+      });
+    };
+
+    const r = data.golf.rankings;
+    fillList("#rankings-list", [
+      ["Division",       r.division],
+      ["Division Rank",  r.Rank],
+      ["Points",         r.Points],
+      ["Differential",   r.Differential],
+      ["Scoring Average", r["Scoring Average"]],
+      ["Events Played",  r.Events],
+      ["Overall JGS Rank", data.golf.stats["Overall JGS Rank"]],
+      ["TUGR Rank",      data.golf.stats["TUGR Rank"]],
+    ]);
+
+    const s = data.golf.scoring;
+    fillList("#par-list", [
+      ["Par 3 Avg", s["Par 3's"]],
+      ["Par 4 Avg", s["Par 4's"]],
+      ["Par 5 Avg", s["Par 5's"]],
+    ]);
+
+    fillList("#scoring-list", [
+      ["Eagles",  s.Eagles],
+      ["Birdies", s.Birdies],
+      ["Pars",    s.Pars],
+      ["Bogeys",  s.Bogeys],
+      ["Doubles", s.Doubles],
+      ["Others",  s.Others],
+    ]);
+  }
+
+  // ---------- Date helpers ----------
+  // Parse "M/D/YYYY" → Date for sorting. Junk dates fall to epoch.
+  function parseUSDate(s) {
+    const m = /^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/.exec((s || "").trim());
+    if (!m) return new Date(0);
+    let [, mo, d, y] = m;
+    if (y.length === 2) y = "20" + y;
+    return new Date(+y, +mo - 1, +d);
+  }
+
+  // Merge scraped + user tournaments, newest first.
+  function getMergedTournaments(year) {
+    const scraped = (PORTFOLIO_DATA.seasons[year] || []).slice();
+    const user = (window.UserScores ? window.UserScores.loadSeason(year) : []).slice();
+    return [...user, ...scraped].sort(
+      (a, b) => parseUSDate(b.date) - parseUSDate(a.date)
+    );
+  }
+
+  // Exposed so user-scores.js can re-render after edits.
+  window.rerenderSeason = function (year) {
+    renderSeason(year, getMergedTournaments(year));
+  };
+
+  // ---------- Season tournaments ----------
+  function renderSeason(year, tournaments) {
+    const wrap = $(`#tournaments-${year}`);
+    const summaryEl = $(`#summary-${year}`);
+    wrap.innerHTML = "";
+
+    if (!tournaments || !tournaments.length) {
+      wrap.innerHTML = `<p class="muted">No tournaments recorded for this season.</p>`;
+      summaryEl.innerHTML = "";
+      return;
+    }
+
+    // Compute aggregate stats from per-round scores like "75 (+3)".
+    const roundScores = [];
+    let bestRound = Infinity;
+    let totalDiff = 0;
+    let topFinish = Infinity;
+
+    tournaments.forEach((t) => {
+      const totalParsed = parseTotal(t.total);
+      if (totalParsed.diffNum != null) totalDiff += totalParsed.diffNum;
+
+      // Place: "T2" → 2, "5" → 5, "T20" → 20.
+      const placeMatch = /(\d+)/.exec(t.place || "");
+      if (placeMatch) topFinish = Math.min(topFinish, parseInt(placeMatch[1], 10));
+
+      t.rounds.forEach((r) => {
+        const m = /^(\d+)/.exec(r.score || "");
+        if (m) {
+          const n = parseInt(m[1], 10);
+          roundScores.push(n);
+          if (n < bestRound) bestRound = n;
+        }
+      });
+
+      wrap.appendChild(buildTournamentCard(t, totalParsed, year));
+    });
+
+    const avg = roundScores.length
+      ? (roundScores.reduce((a, b) => a + b, 0) / roundScores.length).toFixed(2)
+      : "—";
+
+    summaryEl.innerHTML = `
+      <span>Tournaments: <strong>${tournaments.length}</strong></span>
+      <span>Rounds played: <strong>${roundScores.length}</strong></span>
+      <span>Best round: <strong>${bestRound === Infinity ? "—" : bestRound}</strong></span>
+      <span>Round avg: <strong>${avg}</strong></span>
+      <span>Best finish: <strong>${topFinish === Infinity ? "—" : topFinish}</strong></span>
+    `;
+  }
+
+  function buildTournamentCard(t, totalParsed, year) {
+    const card = el("div", "tournament" + (t._userAdded ? " tournament-user" : ""));
+
+    const header = el("div", "tnmt-header");
+    const titleBlock = el("div", "tnmt-title-block");
+
+    const nameLine = el("div", "tnmt-name");
+    nameLine.textContent = t.name;
+    if (t._userAdded) {
+      const badge = el("span", "user-badge", "yours");
+      nameLine.appendChild(document.createTextNode(" "));
+      nameLine.appendChild(badge);
+    }
+    titleBlock.appendChild(nameLine);
+
+    const metaBits = [t.date, t.division].filter(Boolean).join(" • ");
+    titleBlock.appendChild(el("div", "tnmt-meta", metaBits));
+
+    if (t.total) {
+      const totalPill = el("span", `tnmt-total ${diffClass(totalParsed.diffNum)}`,
+        `Total: ${t.total}`);
+      titleBlock.appendChild(totalPill);
+    }
+
+    const placeEl = el("div", "tnmt-place", t.place || "—");
+
+    header.appendChild(titleBlock);
+    header.appendChild(placeEl);
+    card.appendChild(header);
+
+    if (t._userAdded && window.UserScores) {
+      const del = el("button", "btn-delete", "Delete");
+      del.type = "button";
+      del.addEventListener("click", () => {
+        if (!confirm(`Delete "${t.name}"?`)) return;
+        window.UserScores.deleteTournament(year, t._id);
+        window.rerenderSeason(year);
+      });
+      card.appendChild(del);
+    }
+
+    if (t.rounds && t.rounds.length) {
+      const ul = el("ul", "rounds-list");
+      t.rounds.forEach((r) => {
+        const li = el("li");
+        li.appendChild(el("span", "round-label", `R${r.round}`));
+        li.appendChild(el("span", "round-score", r.score));
+        li.appendChild(el("span", "round-course", r.course));
+        ul.appendChild(li);
+      });
+      card.appendChild(ul);
+    }
+
+    return card;
+  }
+
+  // ---------- Tabs ----------
+  function wireTabs() {
+    const tabs = document.querySelectorAll(".tab");
+    tabs.forEach((tab) => {
+      tab.addEventListener("click", () => {
+        const target = tab.dataset.tab;
+        tabs.forEach((t) => {
+          const active = t === tab;
+          t.classList.toggle("active", active);
+          t.setAttribute("aria-selected", active ? "true" : "false");
+        });
+        document.querySelectorAll(".tab-panel").forEach((p) => {
+          p.classList.toggle("active", p.id === target);
+        });
+      });
+    });
+  }
+
+  // ---------- Year selector (inside History tab) ----------
+  function wireYearSelector() {
+    const btns = document.querySelectorAll(".year-btn");
+    const panels = document.querySelectorAll(".year-panel");
+    btns.forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const target = btn.dataset.year;
+        btns.forEach((b) => {
+          const active = b === btn;
+          b.classList.toggle("active", active);
+          b.setAttribute("aria-selected", active ? "true" : "false");
+        });
+        panels.forEach((p) => {
+          p.classList.toggle("active", p.dataset.yearPanel === target);
+        });
+      });
+    });
+  }
+
+  // ---------- Personal Bio edit module ----------
+  // Persists user-edited fields to localStorage and merges them over the
+  // auto-generated PORTFOLIO_DATA.personal on every page load. Single Responsibility:
+  // this module only owns persistence + the edit form wiring. Rendering stays
+  // inside renderHero() / renderPersonal() — they don't even know we exist.
+  const PersonalBio = (() => {
+    const LS_KEY = "ltselzer_personal_overrides";
+    // Core profile fields + every social platform key. Building the social
+    // keys from SOCIAL_PLATFORMS keeps this list in sync automatically.
+    const FIELDS = [
+      "name", "hometown", "class_year", "age", "photo", "bio",
+      ...SOCIAL_PLATFORMS.map((p) => p.key),
+    ];
+    let originalPersonal = null; // snapshot for "Reset to Defaults"
+
+    // Build the owner-side social inputs from SOCIAL_PLATFORMS. Called once
+    // on init — the form elements then participate in populateForm /
+    // handleSubmit just like any other <input name="...">.
+    function buildSocialInputs() {
+      const grid = document.getElementById("personal-socials-grid");
+      if (!grid || grid.dataset.built === "1") return;
+      SOCIAL_PLATFORMS.forEach((platform) => {
+        const label = document.createElement("label");
+        label.className = "field";
+        const span = document.createElement("span");
+        span.textContent = `${platform.icon} ${platform.label}`;
+        const input = document.createElement("input");
+        input.type = "text";
+        input.name = platform.key;
+        input.placeholder = platform.key === "website"
+          ? "https://example.com"
+          : `@handle or ${platform.urlPrefix}handle`;
+        label.appendChild(span);
+        label.appendChild(input);
+        grid.appendChild(label);
+      });
+      grid.dataset.built = "1";
+    }
+
+    function loadOverrides() {
+      try { return JSON.parse(localStorage.getItem(LS_KEY) || "{}"); }
+      catch { return {}; }
+    }
+    function saveOverrides(obj) {
+      try { localStorage.setItem(LS_KEY, JSON.stringify(obj)); }
+      catch (err) { console.warn("PersonalBio: couldn't persist", err); }
+    }
+
+    function applyOverrides() {
+      const o = loadOverrides();
+      FIELDS.forEach((f) => {
+        if (o[f] != null && o[f] !== "") PORTFOLIO_DATA.personal[f] = o[f];
+      });
+    }
+
+    function rerenderAll() {
+      renderHero(PORTFOLIO_DATA);
+      renderPersonal(PORTFOLIO_DATA);
+    }
+
+    function toggleEditMode(editing) {
+      document.getElementById("personal-view").hidden = editing;
+      document.getElementById("personal-edit-form").hidden = !editing;
+      const editBtn = document.getElementById("personal-edit-btn");
+      if (editBtn) editBtn.hidden = editing;
+    }
+
+    function populateForm() {
+      const form = document.getElementById("personal-edit-form");
+      if (!form) return;
+      FIELDS.forEach((f) => {
+        const input = form.elements[f];
+        if (input) input.value = PORTFOLIO_DATA.personal[f] || "";
+      });
+    }
+
+    function handleSubmit(e) {
+      e.preventDefault();
+      const form = e.currentTarget;
+      const fd = new FormData(form);
+      const next = {};
+      FIELDS.forEach((f) => {
+        const v = (fd.get(f) || "").toString().trim();
+        if (v) next[f] = v;
+      });
+      saveOverrides(next);
+      // Apply on top of originals so removing a field reverts to default.
+      PORTFOLIO_DATA.personal = { ...originalPersonal, ...next };
+      rerenderAll();
+      toggleEditMode(false);
+    }
+
+    function handleReset() {
+      if (!confirm("Reset all personal bio fields back to the originals?")) return;
+      try { localStorage.removeItem(LS_KEY); } catch {}
+      PORTFOLIO_DATA.personal = { ...originalPersonal };
+      rerenderAll();
+      toggleEditMode(false);
+    }
+
+    function init() {
+      // Snapshot BEFORE applying overrides so we can always restore defaults.
+      originalPersonal = { ...PORTFOLIO_DATA.personal };
+      applyOverrides();
+      buildSocialInputs();
+
+      const editBtn   = document.getElementById("personal-edit-btn");
+      const cancelBtn = document.getElementById("personal-cancel-btn");
+      const resetBtn  = document.getElementById("personal-reset-btn");
+      const form      = document.getElementById("personal-edit-form");
+
+      if (editBtn)   editBtn.addEventListener("click", () => { populateForm(); toggleEditMode(true); });
+      if (cancelBtn) cancelBtn.addEventListener("click", () => toggleEditMode(false));
+      if (resetBtn)  resetBtn.addEventListener("click", handleReset);
+      if (form)      form.addEventListener("submit", handleSubmit);
+    }
+
+    return { init };
+  })();
+
+  // ---------- Shared <video> playback fixers ----------
+  // Used by SwingVideos render paths so the iOS
+  // quirks fix lives in exactly one place (DRY).
+  //
+  // MediaRecorder-produced WebM files don't carry duration metadata in
+  // their EBML header (the Segment length is encoded as "unknown"). The
+  // upshot is that <video> elements pointed at them report
+  // `duration === Infinity` and refuse to seek or, in some browsers,
+  // refuse to play at all.
+  //
+  // The well-known workaround: once metadata loads, seek to a wildly
+  // large time. The browser scans the rest of the stream looking for the
+  // requested frame, discovers the true end, and finally exposes a
+  // sensible `duration`. We then snap back to the start so the user sees
+  // the first frame.
+  //
+  // iOS Safari is touchy about seeks on unknown-duration streams —
+  // sometimes the `seeked` event never fires and the player wedges. A
+  // 3s timeout guarantees we always recover; a smaller (but still
+  // absurdly large) seek target is also kinder to mobile browsers than
+  // the classic 1e9 sentinel.
+  //
+  // Idempotent — we tag patched elements with a data attribute so
+  // re-renders don't double-wire them.
+  function patchInfiniteDurations(root) {
+    if (!root) return;
+    root.querySelectorAll("video:not([data-duration-patched])").forEach((v) => {
+      v.dataset.durationPatched = "1";
+      v.addEventListener("loadedmetadata", () => {
+        if (v.duration !== Infinity && !Number.isNaN(v.duration)) return;
+        let settled = false;
+        const finalize = () => {
+          if (settled) return;
+          settled = true;
+          v.removeEventListener("seeked", onSeeked);
+          try { v.currentTime = 0; } catch { /* ignore */ }
+        };
+        const onSeeked = () => finalize();
+        v.addEventListener("seeked", onSeeked);
+        setTimeout(finalize, 3000);
+        try { v.currentTime = 1e6; } catch { finalize(); }
+      }, { once: true });
+    });
+  }
+
+  // ---------- SupabaseStorage: direct-to-bucket uploader ----------
+  // Single responsibility: take a File, push it to Supabase Storage,
+  // return a public URL. Replaces the old /api/swing-upload path so
+  // we bypass Netlify Functions' 5 MB payload cap. Keep it tiny —
+  // anything more belongs in SwingVideos.
+  window.SupabaseStorage = (function () {
+    const SUPABASE_URL = "https://ejxjzygcbrtpvwknmogx.supabase.co";
+    const SUPABASE_KEY = "sb_publishable_uZXHoltl550QJj8kyNzpbA_hetYQ9tS";
+    const BUCKET       = "swing-videos";
+
+    // Lazy-init the client so a missing/blocked CDN script doesn't
+    // crash the rest of the page at load time.
+    let client = null;
+    function getClient() {
+      if (client) return client;
+      if (!window.supabase || !window.supabase.createClient) {
+        throw new Error("Supabase JS library failed to load. Check your network/adblocker.");
+      }
+      client = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+      return client;
+    }
+
+    // Build a collision-proof object path. Time prefix keeps the bucket
+    // sortable; the random suffix prevents same-second clobbers.
+    function buildPath(file) {
+      const ext = (file.name.split(".").pop() || "bin").toLowerCase().slice(0, 8);
+      const rand = (crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2)).slice(0, 8);
+      return `${Date.now()}-${rand}.${ext}`;
+    }
+
+    async function uploadFile(file) {
+      const sb   = getClient();
+      const path = buildPath(file);
+      const { error } = await sb.storage.from(BUCKET).upload(path, file, {
+        contentType: file.type || "video/mp4",
+        cacheControl: "3600",
+        upsert: false,
+      });
+      if (error) throw new Error("Supabase upload failed: " + error.message);
+      const { data } = sb.storage.from(BUCKET).getPublicUrl(path);
+      if (!data || !data.publicUrl) throw new Error("Couldn't resolve public URL after upload.");
+      return data.publicUrl;
+    }
+
+    return { uploadFile };
+  })();
+
+  // ---------- SwingVideos module: owner-curated public gallery ----------
+  // Mirrors the UserScores module (tournaments) on purpose — public GET,
+  // owner-only POST/DELETE, identical password header convention.
+  // Single source of truth on the client = the in-memory `cache` array.
+  window.SwingVideos = (function () {
+    const API        = "/api/swing-videos";
+    const UPLOAD_API = "/api/swing-upload"; // legacy; no longer used (Supabase handles uploads)
+    const PW_KEY     = "ltselzer_owner_pw"; // ⚠️ must match OwnerGate / UserScores
+    // Raised from 5 MB now that uploads bypass Netlify Functions and go
+    // direct to Supabase Storage. 200 MB matches the bucket's file-size
+    // limit — keep these two in sync.
+    const MAX_UPLOAD_BYTES = 200 * 1024 * 1024;
+    // ⚠️ Hard ceiling on how many videos the gallery can hold at once.
+    // Frontend hides the upload form once we hit this; backend enforces
+    // it independently in /api/swing-videos POST. Keep BOTH in sync.
+    const MAX_VIDEOS = 2;
+    // Must match the Allowed MIME types configured on the Supabase
+    // bucket. video/quicktime covers raw iPhone .mov uploads — iOS
+    // Safari plays them back natively from the same bytes.
+    const SERVER_ALLOWED_TYPES = new Set(["video/mp4", "video/webm", "video/quicktime"]);
+
+    let cache = [];
+
+    function ownerHeaders() {
+      return { "X-Owner-Password": sessionStorage.getItem(PW_KEY) || "" };
+    }
+
+    // Tiny HTML-escape — every user-submitted string flows through this
+    // before innerHTML interpolation. Belt-and-suspenders vs. the server's
+    // own URL validation.
+    function esc(s) {
+      return String(s ?? "")
+        .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+    }
+
+    // Render one card. Splits on `kind` so adding a new provider stays
+    // a one-place change (url-classify.mjs on the server side).
+    function cardHtml(v) {
+      const safeTitle = esc(v.title);
+      const safeEmbed = esc(v.embedUrl);
+
+      // playsinline + webkit-playsinline are required so iOS Safari plays
+      // fullscreen — by far the most common iPhone playback annoyance.
+      const mediaHtml = v.kind === "file"
+        ? `<video src="${safeEmbed}" controls preload="metadata" playsinline webkit-playsinline></video>`
+        : `<iframe src="${safeEmbed}" title="${safeTitle}"
+             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+             allowfullscreen loading="lazy"
+             referrerpolicy="strict-origin-when-cross-origin"></iframe>`;
+
+      return `
+        <article class="swing-card" data-id="${esc(v._id)}">
+          <div class="swing-card-media">${mediaHtml}</div>
+          <div class="swing-card-body">
+            <div class="swing-card-title">${safeTitle}</div>
+            <button type="button" class="swing-card-delete owner-only"
+                    data-swing-delete="${esc(v._id)}">🗑️ Remove</button>
+          </div>
+        </article>`;
+    }
+
+    // Flip the owner-area between the upload form and the limit-reached
+    // message based on the current cache length. Called from render() so
+    // every CRUD op (add, delete, initial load) keeps the UI honest with
+    // a single source of truth (cache).
+    function syncLimitUI() {
+      const atLimit  = cache.length >= MAX_VIDEOS;
+      const form     = document.getElementById("swing-upload-form");
+      const message  = document.getElementById("swing-limit-message");
+      const heading  = document.getElementById("swing-owner-heading");
+      const maxSpan  = document.getElementById("swing-limit-max");
+      if (form)    form.hidden    = atLimit;
+      if (message) message.hidden = !atLimit;
+      if (heading) heading.textContent = atLimit ? "Gallery is full" : "Add a Swing Video";
+      if (maxSpan) maxSpan.textContent = String(MAX_VIDEOS);
+    }
+
+    function render() {
+      const grid = document.getElementById("swing-community-grid");
+      if (!grid) return;
+      if (cache.length === 0) {
+        grid.innerHTML = `<p class="swing-empty">No swing videos yet — add one from owner mode.</p>`;
+      } else {
+        grid.innerHTML = cache.map(cardHtml).join("");
+        patchInfiniteDurations(grid);
+      }
+      // Always re-sync limit UI after a render — handles add, delete, and
+      // the initial load equally without duplicated calls at call sites.
+      syncLimitUI();
+    }
+
+    async function fetchAll() {
+      try {
+        const res = await fetch(API, { cache: "no-store" });
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        const body = await res.json();
+        cache = Array.isArray(body.videos) ? body.videos : [];
+      } catch (err) {
+        console.warn("SwingVideos: couldn't load videos:", err);
+        cache = [];
+      }
+      render();
+    }
+
+    // Shared 401/error handling for both submit paths — keeps the two
+    // submitX() functions tiny and the recovery logic in one place (DRY).
+    async function handleSubmitResponse(res) {
+      if (res.status === 401) {
+        if (window.OwnerGate) window.OwnerGate.promptForOwner();
+        throw new Error("Session expired — please re-enter the password.");
+      }
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.error || ("Submit failed (HTTP " + res.status + ")"));
+      cache.unshift(body.video);
+      render();
+    }
+
+    // Path 1: external URL (YouTube/Vimeo/public .mp4). Tiny JSON POST.
+    async function submitUrl({ title, videoUrl }) {
+      const res = await fetch(API, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...ownerHeaders() },
+        body:    JSON.stringify({ title, videoUrl }),
+      });
+      await handleSubmitResponse(res);
+    }
+
+    // Path 2: local file upload. Now a two-step flow:
+    //   1. Push the file directly to Supabase Storage (no 5 MB cap).
+    //   2. Submit the resulting public URL through the SAME endpoint
+    //      submitUrl uses, so the database record creation path stays
+    //      DRY — there's now exactly one way to register a video.
+    // The legacy /api/swing-upload Netlify Function is no longer called
+    // and can be deleted on the server side once this is verified live.
+    async function submitFile({ title, file }) {
+      if (!window.SupabaseStorage) {
+        throw new Error("SupabaseStorage module missing — can't upload files.");
+      }
+      const videoUrl = await window.SupabaseStorage.uploadFile(file);
+      await submitUrl({ title, videoUrl });
+    }
+
+    async function remove(id) {
+      const res = await fetch(`${API}?id=${encodeURIComponent(id)}`, {
+        method: "DELETE",
+        headers: ownerHeaders(),
+      });
+      if (res.status === 401) {
+        if (window.OwnerGate) window.OwnerGate.promptForOwner();
+        throw new Error("Session expired — please re-enter the password.");
+      }
+      if (!res.ok && res.status !== 404) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || ("Delete failed (HTTP " + res.status + ")"));
+      }
+      cache = cache.filter((v) => v._id !== id);
+      render();
+    }
+
+    function setStatus(text, kind) {
+      const el = document.getElementById("swing-upload-status");
+      if (!el) return;
+      el.textContent = text;
+      el.classList.remove("is-error", "is-success");
+      if (kind) el.classList.add("is-" + kind);
+    }
+
+    // One delegated handler for the whole community block — handles every
+    // card's delete button (cards are re-rendered, the container is stable).
+    function wireContainer() {
+      const root = document.querySelector(".swing-community");
+      if (!root) return;
+
+      root.addEventListener("click", async (e) => {
+        const delBtn = e.target.closest("[data-swing-delete]");
+        if (!delBtn) return;
+        const id = delBtn.dataset.swingDelete;
+        if (!id) return;
+        if (!confirm("Remove this swing video?")) return;
+        try { await remove(id); }
+        catch (err) { alert("Couldn't remove:\n" + err.message); }
+      });
+    }
+
+    function wireForm() {
+      const form = document.getElementById("swing-upload-form");
+      if (!form) return;
+      const submitBtn = form.querySelector('button[type="submit"]');
+
+      // Tiny helper — true only if the user actually attached a file
+      // (an empty file input still returns a File-like with size 0).
+      function hasPickedFile(picked) {
+        return picked instanceof File && picked.size > 0;
+      }
+
+      form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const data     = new FormData(form);
+        const title    = (data.get("title") || "").toString().trim();
+        const videoUrl = (data.get("videoUrl") || "").toString().trim();
+        const picked   = data.get("file");
+        const fileMode = hasPickedFile(picked);
+
+        if (!title) {
+          setStatus("Title is required.", "error");
+          return;
+        }
+        if (!fileMode && !videoUrl) {
+          setStatus("Add a video link or choose a file.", "error");
+          return;
+        }
+        // Belt-and-suspenders: render()'s syncLimitUI() already hides the
+        // form at the limit, but if somehow we got a submit through (e.g.
+        // dev tools, stale UI), bail before doing any upload work.
+        if (cache.length >= MAX_VIDEOS) {
+          setStatus(`Gallery is full (limit: ${MAX_VIDEOS}). Delete one first.`, "error");
+          return;
+        }
+
+        const originalLabel = submitBtn.textContent;
+        submitBtn.disabled  = true;
+        try {
+          // File path wins when both are provided — picking a file is the
+          // more deliberate action and avoids ambiguity in the UI.
+          if (fileMode) {
+            // Supabase Storage + url-classify both accept mp4 / webm / mov.
+            // Reject anything else up front so the user gets a clear message
+            // instead of a cryptic Supabase 400.
+            if (!SERVER_ALLOWED_TYPES.has(picked.type)) {
+              throw new Error(
+                `This file type ("${picked.type || "unknown"}") isn't supported. ` +
+                `Try a .mp4, .mov, or .webm — or paste a YouTube link instead.`);
+            }
+            if (picked.size > MAX_UPLOAD_BYTES) {
+              const mb = (picked.size / 1024 / 1024).toFixed(1);
+              throw new Error(
+                `That clip is ${mb} MB — limit is ${MAX_UPLOAD_BYTES / 1024 / 1024} MB. ` +
+                `Pick a shorter clip, or paste a YouTube link instead.`);
+            }
+            submitBtn.textContent = "Uploading…";
+            setStatus("Uploading…", null);
+            await submitFile({ title, file: picked });
+          } else {
+            submitBtn.textContent = "Adding…";
+            setStatus("Adding…", null);
+            await submitUrl({ title, videoUrl });
+          }
+          form.reset();
+          form.hidden = true;
+          setStatus("", null);
+        } catch (err) {
+          setStatus(err.message, "error");
+        } finally {
+          submitBtn.disabled    = false;
+          submitBtn.textContent = originalLabel;
+        }
+      });
+    }
+
+    async function init() {
+      wireContainer();
+      wireForm();
+      await fetchAll();
+    }
+
+    return { init };
+  })();
+
+
+  // ---------- Owner Gate (real server-side auth) ----------
+  // Password verification happens via POST /api/auth, which compares the
+  // submitted password against the OWNER_PASSWORD_HASH env var set on
+  // Netlify. The plaintext password is then stashed in sessionStorage and
+  // attached to subsequent owner-only requests (add/delete tournament).
+  //
+  // 🔑 TO CHANGE THE PASSWORD:
+  //   1. In a terminal, run:
+  //        node -e "console.log(require('crypto').createHash('sha256').update('YOUR_NEW_PASSWORD').digest('hex'))"
+  //      (or use any online SHA-256 generator)
+  //   2. Copy the resulting hex string.
+  //   3. In Netlify dashboard → Site → Site settings → Environment variables,
+  //      update OWNER_PASSWORD_HASH to that hex string.
+  //   4. Trigger a fresh deploy. Done — no code change needed.
+  const OwnerGate = (() => {
+    const SS_KEY = "ltselzer_role";       // "owner" | "visitor"
+    const PW_KEY = "ltselzer_owner_pw";   // ⚠️ must match UserScores' PW_KEY
+
+    // Ask the server if this password is right. We don't trust the client
+    // to make that call — only the function (which holds the hash) can.
+    async function verifyPassword(password) {
+      try {
+        const res = await fetch("/api/auth", {
+          method:  "POST",
+          headers: { "Content-Type": "application/json" },
+          body:    JSON.stringify({ password }),
+        });
+        return res.ok;
+      } catch (err) {
+        console.warn("OwnerGate: auth request failed:", err);
+        return false;
+      }
+    }
+
+    // Update body class + persist the role + refresh the pill UI.
+    // Single source of truth for "what mode are we in?" — DRY.
+    function setMode(role) {
+      const isOwner = role === "owner";
+      document.body.classList.toggle("is-owner", isOwner);
+      sessionStorage.setItem(SS_KEY, role);
+      updatePill(role);
+    }
+
+    function updatePill(role) {
+      const pill   = document.getElementById("mode-pill");
+      const label  = document.getElementById("mode-pill-label");
+      const switchBtn = document.getElementById("mode-pill-switch");
+      if (!pill || !label || !switchBtn) return;
+      pill.hidden = false;
+      if (role === "owner") {
+        pill.classList.remove("is-visitor");
+        label.textContent     = "🔑 Owner mode";
+        switchBtn.textContent = "Switch to Visitor";
+      } else {
+        pill.classList.add("is-visitor");
+        label.textContent     = "👀 Visitor mode";
+        switchBtn.textContent = "Switch to Owner →";
+      }
+    }
+
+    function showGate(show) {
+      const gate = document.getElementById("gate");
+      if (gate) gate.hidden = !show;
+    }
+
+    function showStep(step) {
+      document.querySelectorAll("#gate [data-gate-step]").forEach((el) => {
+        el.hidden = el.dataset.gateStep !== step;
+      });
+      const err = document.getElementById("gate-error");
+      if (err) err.textContent = "";
+      if (step === "password") {
+        setTimeout(() => document.getElementById("gate-pw")?.focus(), 50);
+      }
+    }
+
+    function shake() {
+      const card = document.getElementById("gate-card");
+      if (!card) return;
+      card.classList.add("is-shaking");
+      setTimeout(() => card.classList.remove("is-shaking"), 320);
+    }
+
+    // Going visitor never needs a password — it's the lower-privilege mode.
+    // We wipe the stored password too so an attacker who steals the tab
+    // after a logout can't replay it on the API.
+    function switchToVisitor() {
+      sessionStorage.removeItem(PW_KEY);
+      setMode("visitor");
+      showGate(false);
+    }
+
+    // Going owner always requires the password challenge.
+    // We jump straight to the password step (skipping the role chooser)
+    // because the user has explicitly asked to upgrade.
+    function promptForOwner() {
+      showStep("password");
+      showGate(true);
+    }
+
+    function init() {
+      // Role buttons on the first-visit chooser.
+      document.querySelectorAll("[data-role]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const role = btn.dataset.role;
+          if (role === "visitor") switchToVisitor();
+          else if (role === "owner") showStep("password");
+        });
+      });
+
+      // Back button on the password step → return to the role chooser
+      // (only meaningful on the first-visit flow; harmless otherwise).
+      document.querySelectorAll("[data-gate-back]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          // If we already have a saved role, dismiss the gate instead of
+          // forcing the user back to the chooser screen.
+          const saved = sessionStorage.getItem(SS_KEY);
+          if (saved) { showGate(false); }
+          else       { showStep("choose"); }
+        });
+      });
+
+      // Password form submission — calls /api/auth, real verification.
+      const form = document.getElementById("gate-pw-form");
+      if (form) {
+        const submitBtn = form.querySelector('button[type="submit"]');
+        form.addEventListener("submit", async (e) => {
+          e.preventDefault();
+          const input = document.getElementById("gate-pw");
+          const err   = document.getElementById("gate-error");
+          const password = input.value;
+
+          err.textContent       = "";
+          submitBtn.disabled    = true;
+          const originalLabel   = submitBtn.textContent;
+          submitBtn.textContent = "Checking…";
+
+          const ok = await verifyPassword(password);
+
+          submitBtn.disabled    = false;
+          submitBtn.textContent = originalLabel;
+
+          if (ok) {
+            // Stash the password so the next add/delete API call can
+            // include it in the X-Owner-Password header.
+            sessionStorage.setItem(PW_KEY, password);
+            setMode("owner");
+            showGate(false);
+            input.value = "";
+          } else {
+            err.textContent = "Wrong password — try again.";
+            shake();
+            input.select();
+          }
+        });
+      }
+
+      // Mode-pill switch button — its action depends on current mode.
+      const switchBtn = document.getElementById("mode-pill-switch");
+      if (switchBtn) {
+        switchBtn.addEventListener("click", () => {
+          const isOwner = document.body.classList.contains("is-owner");
+          if (isOwner) switchToVisitor();
+          else         promptForOwner();
+        });
+      }
+
+      // Restore prior choice for this tab, or show the chooser gate.
+      const saved = sessionStorage.getItem(SS_KEY);
+      if (saved === "owner" || saved === "visitor") {
+        setMode(saved);
+        showGate(false);
+      } else {
+        updatePill("visitor"); // default look while chooser is open
+        document.getElementById("mode-pill").hidden = true; // hide until they pick
+        showStep("choose");
+        showGate(true);
+      }
+    }
+
+    return { init, switchToVisitor, promptForOwner };
+  })();
+  // Exposed globally so other modules (e.g. UserScores) can call
+  // OwnerGate.promptForOwner() when the session has expired.
+  window.OwnerGate = OwnerGate;
+
+  // ---------- Boot ----------
+  document.addEventListener("DOMContentLoaded", async () => {
+    if (typeof PORTFOLIO_DATA === "undefined") {
+      console.error("PORTFOLIO_DATA missing — run parse.py to regenerate data.js");
+      return;
+    }
+    // Gate first so the body.is-owner class is set before edit UI renders.
+    OwnerGate.init();
+    // PersonalBio.init() must run BEFORE the first render so any saved
+    // overrides are merged into PORTFOLIO_DATA.personal up front.
+    PersonalBio.init();
+    renderHero(PORTFOLIO_DATA);
+    renderPersonal(PORTFOLIO_DATA);
+    renderGolf(PORTFOLIO_DATA);
+    wireTabs();
+    wireYearSelector();
+
+    // Fetch persisted tournaments BEFORE the first render so the initial
+    // paint already includes them (avoids a flash of "no user data").
+    if (window.UserScores) {
+      await window.UserScores.init((year) => window.rerenderSeason(year));
+    }
+    ["2024", "2025", "2026"].forEach((y) => window.rerenderSeason(y));
+
+    // Swing videos gallery — fire-and-forget. The
+    // grid shows a loading message until the GET resolves; the add/delete
+    // controls only appear once OwnerGate flips body.is-owner.
+    if (window.SwingVideos) {
+      window.SwingVideos.init();
+    }
+  });
+})();
+
+</script>
+</body>
+</html>

@@ -1,0 +1,20 @@
+# Drag-and-drop deploys don't run a build step; Netlify just publishes the
+# folder as-is and auto-discovers functions under netlify/functions/.
+# The redirects below are the only thing this file really needs.
+
+[build]
+  functions = "netlify/functions"
+
+# Front-door pretty URL → existing HTML file.
+[[redirects]]
+  from   = "/"
+  to     = "/LTSelzer-portfolio.html"
+  status = 200
+  force  = false
+
+# /api/* → Netlify Functions. Used by OwnerGate, SwingVideos, etc.
+[[redirects]]
+  from   = "/api/*"
+  to     = "/.netlify/functions/:splat"
+  status = 200
+  force  = false

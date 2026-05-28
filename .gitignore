@@ -1,0 +1,29 @@
+# Local Netlify dev cache + linked-site state.
+# Note: .netlify/state.json holds your siteId — safe to commit if you want
+# teammates auto-linked, ignored here for the "just my laptop" workflow.
+.netlify/
+
+# Node / npm
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Deno (you have a deno.lock kicking around)
+.deno/
+
+# OS junk
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Env files (never commit secrets)
+.env
+.env.*
+!.env.example
