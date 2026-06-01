@@ -1134,6 +1134,10 @@ body.is-owner .owner-only { display: revert !important; }
             <input type="text" name="age" placeholder="e.g. Age: 13" />
           </label>
           <label class="field full">
+            <span>Currently Attending</span>
+            <input type="text" name="currently_attending" placeholder="e.g. school, academy, program — whatever you want" />
+          </label>
+          <label class="field full">
             <span>Photo URL</span>
             <input type="url" name="photo" placeholder="https://..." />
           </label>
@@ -1851,6 +1855,7 @@ const PORTFOLIO_DATA = {
     "hometown": "Charlotte, NC",
     "class_year": "Class of 2031",
     "age": "Age: 13",
+    "currently_attending": "",
     "instagram": ""
   },
   "golf": {
@@ -2238,10 +2243,11 @@ const PORTFOLIO_DATA = {
     const list = $("#personal-list");
     list.innerHTML = "";
     const items = [
-      ["Name",       data.personal.name],
-      ["Hometown",   data.personal.hometown],
-      ["Age",        (data.personal.age || "").replace(/^Age:\s*/i, "")],
-      ["Class Year", data.personal.class_year],
+      ["Name",                data.personal.name],
+      ["Hometown",            data.personal.hometown],
+      ["Age",                 (data.personal.age || "").replace(/^Age:\s*/i, "")],
+      ["Class Year",          data.personal.class_year],
+      ["Currently Attending", data.personal.currently_attending],
     ];
     items.forEach(([label, value]) => {
       if (!value) return;
@@ -2508,7 +2514,8 @@ const PORTFOLIO_DATA = {
     // Core profile fields + every social platform key. Building the social
     // keys from SOCIAL_PLATFORMS keeps this list in sync automatically.
     const FIELDS = [
-      "name", "hometown", "class_year", "age", "photo", "bio",
+      "name", "hometown", "class_year", "age", "currently_attending",
+      "photo", "bio",
       ...SOCIAL_PLATFORMS.map((p) => p.key),
     ];
     let originalPersonal = null; // snapshot for "Reset to Defaults"
