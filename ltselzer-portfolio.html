@@ -1087,11 +1087,16 @@ body.is-owner .owner-only { display: revert !important; }
 }
 .gate-card.is-shaking { animation: gate-shake 0.3s ease; }
 
+/* Mode switcher pill — anchored to the top-right of the .hero (which
+   is already position: relative). Scrolls with the header, doesn't
+   overlap content, and a subtle 1px white outline keeps it readable
+   against the green gradient background. */
 .mode-pill {
-  position: fixed; top: 1rem; right: 1rem; z-index: 100;
+  position: absolute; top: 1rem; right: 1rem; z-index: 3;
   background: var(--green-deep); color: #fff;
   padding: 0.5rem 0.9rem; border-radius: 999px;
   box-shadow: var(--shadow);
+  border: 1px solid rgba(255, 255, 255, 0.35);
   display: flex; align-items: center; gap: 0.6rem;
   font-size: 0.85rem; font-weight: 700;
   transition: background 0.2s ease;
@@ -1107,6 +1112,22 @@ body.is-owner .owner-only { display: revert !important; }
   transition: background 0.15s ease;
 }
 .mode-pill button:hover { background: rgba(255,255,255,0.32); }
+
+/* On phones, the hero gets narrower padding and the pill can crowd the
+   centered title. Shrink it a touch and ensure it stays in the corner
+   without overlapping the player photo. */
+@media (max-width: 480px) {
+  .mode-pill {
+    top: 0.6rem; right: 0.6rem;
+    padding: 0.35rem 0.65rem;
+    font-size: 0.75rem;
+    gap: 0.4rem;
+  }
+  .mode-pill button {
+    padding: 0.25rem 0.55rem;
+    font-size: 0.7rem;
+  }
+}
 
 </style>
 </head>
@@ -1147,13 +1168,16 @@ body.is-owner .owner-only { display: revert !important; }
     </div>
   </div>
 
-  <div id="mode-pill" class="mode-pill" hidden>
-    <span id="mode-pill-label">🔑 Owner mode</span>
-    <button type="button" id="mode-pill-switch">Switch to Visitor</button>
-  </div>
-
   <header class="hero">
     <div class="hero-overlay"></div>
+    <!-- Mode switcher lives INSIDE the hero so it's visually part of
+         the header (top-right corner of the green banner) instead of
+         floating in the viewport. Hidden on first paint until OwnerGate
+         decides whether to show the gate or the saved role. -->
+    <div id="mode-pill" class="mode-pill" hidden>
+      <span id="mode-pill-label">🔑 Owner mode</span>
+      <button type="button" id="mode-pill-switch">Switch to Visitor</button>
+    </div>
     <div class="hero-content">
       <img id="player-photo" class="player-photo" alt="Luke Thomas Selzer" />
       <p class="eyebrow">Junior Golfer Portfolio</p>
