@@ -79,7 +79,8 @@ a { color: var(--green-deep); }
 /* ---------- Personal Bio in-tab photo ---------- */
 /* Large display photo inside the Personal Bio tab. Shares its URL
    with .player-photo (the hero avatar) so a single upload updates
-   both. Auto-hidden via [hidden] when data.personal.photo is empty. */
+   both. Auto-hidden via [hidden] when data.personal.photo is empty.
+   max-width: 100% + object-fit keep it mobile-safe at any viewport. */
 .personal-photo-figure {
   margin: 0 0 1.4rem;
   display: flex;
@@ -96,6 +97,48 @@ a { color: var(--green-deep); }
   box-shadow: var(--shadow);
   background: #f0eee6;
   object-fit: contain;
+}
+/* Phones get a tighter cap — 420px would eat most of the viewport. */
+@media (max-width: 540px) {
+  .personal-photo-figure img { max-height: 320px; }
+}
+
+/* The file-upload control beneath the Photo URL input.
+   We have to undo three things `.field` would otherwise force on us:
+     1. `.field span` makes ALL nested spans uppercase + bold green.
+        Fine for labels; very NOT fine for live status text.
+     2. `.field input` applies text-input styling that mangles the
+        native file picker rendering.
+     3. The wrapper itself was inline by default, which broke the
+        file-picker → status-text vertical stack on mobile.
+   Scoped overrides only — we don't touch the rest of .field. */
+.personal-photo-upload {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-top: 0.4rem;
+  /* Reset the label-y typography .field span would inherit. */
+  text-transform: none;
+  letter-spacing: normal;
+  font-weight: 400;
+  color: var(--charcoal);
+  font-size: 0.85rem;
+}
+.personal-photo-upload input[type="file"] {
+  padding: 0;
+  border: none;
+  background: transparent;
+  font-size: 0.85rem;
+  /* On mobile the native file button is tap-target sized; let it be. */
+}
+.personal-photo-upload .swing-upload-status {
+  /* Already styled by .swing-upload-status, but force the resets so
+     the .field span cascade doesn't bold-uppercase it. */
+  text-transform: none;
+  letter-spacing: normal;
+  font-weight: 400;
+  font-size: 0.85rem;
+  color: #555;
 }
 
 .eyebrow {
@@ -1176,8 +1219,7 @@ body.is-owner .owner-only { display: revert !important; }
                  not a separate persistence path. (SRP: this label only
                  handles the upload, not the save.) -->
             <span class="personal-photo-upload">
-              <input type="file" id="personal-photo-file" accept="image/*"
-                     style="font-size: 0.85rem; margin-top: 0.4rem;">
+              <input type="file" id="personal-photo-file" accept="image/*">
               <span class="swing-upload-status" id="personal-photo-status"
                     role="status" aria-live="polite"></span>
             </span>
