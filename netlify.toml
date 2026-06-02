@@ -18,3 +18,27 @@
   to     = "/.netlify/functions/:splat"
   status = 200
   force  = false
+
+# ---------------- Cache headers ----------------
+# Mobile Safari + a flaky connection = the worst-case caching scenario.
+# Even though Netlify's defaults for HTML are reasonable, iOS in
+# particular will happily serve a stale cached page for hours/days
+# unless we EXPLICITLY say "always check with the server first."
+#
+# `no-cache` is a name-trap: it does NOT mean "don't store." It means
+# "you may store this, but you MUST revalidate with the server before
+# using it." That gives us instant deploys without burning bandwidth
+# on full re-downloads when nothing has changed (304 Not Modified).
+#
+# We apply this to the root and to the actual HTML file — both are
+# valid entry points because of the `/` → `/LTSelzer-portfolio.html`
+# 200-redirect above.
+[[headers]]
+  for = "/"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+
+[[headers]]
+  for = "/*.html"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
