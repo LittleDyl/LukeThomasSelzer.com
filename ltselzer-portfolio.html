@@ -1129,6 +1129,104 @@ body.is-owner .owner-only { display: revert !important; }
   }
 }
 
+/* Compact icon button (used for the 🎨 theme trigger inside the pill).
+   Just a transparent square with hover lift — no label, the emoji IS
+   the icon. Smaller padding than the sibling "Switch to…" button so
+   the pill doesn't grow obnoxiously wide. */
+.mode-pill .mode-pill-icon-btn {
+  background: rgba(255,255,255,0.18);
+  padding: 0.25rem 0.45rem;
+  font-size: 0.95rem;
+  line-height: 1;
+}
+
+/* ---------- Theme editor modal ----------
+   Owner-only popover for picking site colors. Native <input type="color">
+   takes care of the actual color wheel on every platform (OS-native
+   picker on macOS/Windows/iOS/Android), so we just need the wrapper UI. */
+.theme-modal {
+  position: fixed; inset: 0; z-index: 200;
+  display: flex; align-items: center; justify-content: center;
+  padding: 1rem;
+}
+.theme-modal[hidden] { display: none; }
+.theme-modal-backdrop {
+  position: absolute; inset: 0;
+  background: rgba(15, 25, 20, 0.55);
+  cursor: pointer;
+}
+.theme-modal-card {
+  position: relative;
+  background: var(--card);
+  border-radius: var(--radius);
+  padding: 1.4rem 1.5rem;
+  width: 100%;
+  max-width: 380px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+  /* Scroll inside the card if the viewport is super short (landscape phone) */
+  max-height: calc(100vh - 2rem);
+  overflow-y: auto;
+}
+.theme-modal-card h3 {
+  margin: 0 0 0.6rem;
+  font-size: 1.15rem;
+  color: var(--green-deep);
+  text-transform: none;
+  letter-spacing: 0;
+}
+.theme-modal-help {
+  font-size: 0.85rem;
+  color: var(--muted);
+  margin: 0 0 1.1rem;
+  line-height: 1.45;
+}
+.theme-modal-help strong { color: var(--charcoal); }
+
+.theme-field {
+  display: flex; align-items: center; justify-content: space-between;
+  margin: 0.6rem 0;
+  gap: 1rem;
+}
+.theme-field > span {
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: var(--charcoal);
+}
+/* Native color input — strip the default chrome so it looks like a
+   clean clickable swatch. Different browsers render <input type="color">
+   differently; these resets normalize the look. */
+.theme-field input[type="color"] {
+  width: 52px;
+  height: 36px;
+  padding: 0;
+  border: 1px solid rgba(31, 77, 43, 0.3);
+  border-radius: 8px;
+  background: transparent;
+  cursor: pointer;
+}
+.theme-field input[type="color"]::-webkit-color-swatch-wrapper { padding: 2px; }
+.theme-field input[type="color"]::-webkit-color-swatch { border: none; border-radius: 5px; }
+.theme-field input[type="color"]::-moz-color-swatch { border: none; border-radius: 5px; }
+
+/* Four-square preview strip: derived-dark / primary / derived-light / accent.
+   Updated live by the JS module as the owner drags the color picker. */
+.theme-preview {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.4rem;
+  margin: 0.9rem 0 0.3rem;
+}
+.theme-preview-swatch {
+  height: 36px;
+  border-radius: 6px;
+  border: 1px solid rgba(0,0,0,0.08);
+}
+
+.theme-modal-actions {
+  display: flex; flex-wrap: wrap; gap: 0.5rem;
+  margin-top: 1.2rem;
+}
+
 </style>
 </head>
 <body>
@@ -1176,6 +1274,9 @@ body.is-owner .owner-only { display: revert !important; }
          decides whether to show the gate or the saved role. -->
     <div id="mode-pill" class="mode-pill" hidden>
       <span id="mode-pill-label">🔑 Owner mode</span>
+      <!-- Theme editor trigger. Owner-only so visitors never see it. -->
+      <button type="button" id="theme-edit-btn" class="mode-pill-icon-btn owner-only"
+              title="Edit site theme" aria-label="Edit site theme">🎨</button>
       <button type="button" id="mode-pill-switch">Switch to Visitor</button>
     </div>
     <div class="hero-content">
@@ -1387,6 +1488,55 @@ body.is-owner .owner-only { display: revert !important; }
     </section>
 
   </main>
+
+  <!-- ===== Theme editor modal =====
+       Owner-only overlay for picking custom site colors. Opens when the
+       🎨 button in the mode pill is clicked. Sits outside <main> so the
+       fixed-position backdrop covers the whole viewport including the
+       hero header. The whole modal is built once in the DOM; we just
+       toggle the [hidden] attribute on the wrapper to show/hide it. -->
+  <div id="theme-modal" class="theme-modal" hidden role="dialog"
+       aria-labelledby="theme-modal-title" aria-modal="true">
+    <div class="theme-modal-backdrop" data-theme-close></div>
+    <div class="theme-modal-card" role="document">
+      <h3 id="theme-modal-title">🎨 Site Theme</h3>
+      <p class="theme-modal-help">
+        Pick two colors. <strong>Primary</strong> drives the green family
+        (header, buttons, links); <strong>Accent</strong> drives the sand
+        tone (the small accents on the hero). Changes apply to every
+        visitor on every device.
+      </p>
+
+      <label class="theme-field">
+        <span>Primary color</span>
+        <input type="color" id="theme-primary" value="#2e7d4f">
+      </label>
+
+      <label class="theme-field">
+        <span>Accent color</span>
+        <input type="color" id="theme-accent" value="#e7d9a6">
+      </label>
+
+      <!-- Live swatch preview. The four squares show, in order:
+           darker-derived / primary / lighter-derived / accent. We update
+           them on every color picker input event so the owner can see
+           the full palette before committing. -->
+      <div class="theme-preview" aria-hidden="true">
+        <span class="theme-preview-swatch" data-preview="deep"></span>
+        <span class="theme-preview-swatch" data-preview="primary"></span>
+        <span class="theme-preview-swatch" data-preview="soft"></span>
+        <span class="theme-preview-swatch" data-preview="accent"></span>
+      </div>
+
+      <p id="theme-status" class="swing-upload-status" role="status" aria-live="polite"></p>
+
+      <div class="theme-modal-actions">
+        <button type="button" id="theme-save-btn" class="swing-upload-btn">💾 Save</button>
+        <button type="button" id="theme-cancel-btn" class="swing-ghost-btn" data-theme-close>Cancel</button>
+        <button type="button" id="theme-reset-btn" class="swing-ghost-btn personal-reset">Reset to Defaults</button>
+      </div>
+    </div>
+  </div>
 
   <script>
 // AUTO-GENERATED by parse.py — do not edit by hand.
@@ -3337,6 +3487,276 @@ const PORTFOLIO_DATA = {
   })();
 
 
+  // ---------- ThemeEditor: owner-customizable site colors ----------
+  // Loads a saved theme from /api/theme on init and applies it via CSS
+  // custom properties on the <html> element. Owners can open a modal
+  // (🎨 button in the mode pill) to pick a new primary + accent color
+  // and see a live preview before committing. Same auth + persistence
+  // pattern as PersonalBio and the other owner-mutating modules.
+  //
+  // We override exactly four CSS variables: --green, --green-deep,
+  // --green-soft, --sand. The deep/soft shades are *derived* from the
+  // owner's primary pick using HSL lightness shifts — they only need to
+  // make one decision and the whole green family updates coherently.
+  window.ThemeEditor = (function () {
+    const API_URL = "/api/theme";
+    const PW_KEY  = "ltselzer_owner_pw"; // ⚠️ must match OwnerGate
+
+    // Match the :root defaults so the modal opens to a sensible starting
+    // state when no theme has been saved yet. Keep these in lockstep
+    // with the :root rule at the top of the stylesheet.
+    const DEFAULTS = { primary: "#2e7d4f", accent: "#e7d9a6" };
+
+    // How far to shift the primary's lightness to derive the deep/soft
+    // shades. Picked by eyeballing the original palette — the stock
+    // green family spans roughly ±12-15% L from the middle green.
+    const DEEP_DELTA = -0.15;
+    const SOFT_DELTA = +0.12;
+
+    // "Snapshot" of the theme that was in effect when the modal opened,
+    // so Cancel can revert any live-preview changes the user made.
+    let snapshot = {};
+
+    function ownerHeaders() {
+      return { "X-Owner-Password": sessionStorage.getItem(PW_KEY) || "" };
+    }
+
+    // ---- Color math (hex ↔ HSL) ----
+    // Tiny self-contained color utility. We don't pull in a library —
+    // 30 lines of well-known formulas beat the maintenance overhead.
+    function hexToHsl(hex) {
+      const m = /^#?([a-f0-9]{2})([a-f0-9]{2})([a-f0-9]{2})$/i.exec(hex);
+      if (!m) return null;
+      const r = parseInt(m[1], 16) / 255;
+      const g = parseInt(m[2], 16) / 255;
+      const b = parseInt(m[3], 16) / 255;
+      const max = Math.max(r, g, b), min = Math.min(r, g, b);
+      const l = (max + min) / 2;
+      let h = 0, s = 0;
+      if (max !== min) {
+        const d = max - min;
+        s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+        if      (max === r) h = (g - b) / d + (g < b ? 6 : 0);
+        else if (max === g) h = (b - r) / d + 2;
+        else                h = (r - g) / d + 4;
+        h /= 6;
+      }
+      return { h, s, l };
+    }
+    function hslToHex(h, s, l) {
+      let r, g, b;
+      if (s === 0) { r = g = b = l; }
+      else {
+        const hue2rgb = (p, q, t) => {
+          if (t < 0) t += 1;
+          if (t > 1) t -= 1;
+          if (t < 1/6) return p + (q - p) * 6 * t;
+          if (t < 1/2) return q;
+          if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+          return p;
+        };
+        const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+        const p = 2 * l - q;
+        r = hue2rgb(p, q, h + 1/3);
+        g = hue2rgb(p, q, h);
+        b = hue2rgb(p, q, h - 1/3);
+      }
+      const toHex = (x) => Math.round(x * 255).toString(16).padStart(2, "0");
+      return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+    }
+    function adjustLightness(hex, delta) {
+      const hsl = hexToHsl(hex);
+      if (!hsl) return hex;
+      const l = Math.max(0, Math.min(1, hsl.l + delta));
+      return hslToHex(hsl.h, hsl.s, l);
+    }
+
+    // ---- CSS variable application ----
+    // Set inline custom properties on <html> when the theme has fields,
+    // and REMOVE them (revert to :root defaults) when fields are absent.
+    // Calling with {} cleanly resets to the original green palette.
+    function applyTheme(theme) {
+      const root = document.documentElement.style;
+      if (theme && theme.primary) {
+        root.setProperty("--green",      theme.primary);
+        root.setProperty("--green-deep", adjustLightness(theme.primary, DEEP_DELTA));
+        root.setProperty("--green-soft", adjustLightness(theme.primary, SOFT_DELTA));
+      } else {
+        root.removeProperty("--green");
+        root.removeProperty("--green-deep");
+        root.removeProperty("--green-soft");
+      }
+      if (theme && theme.accent) root.setProperty("--sand", theme.accent);
+      else                       root.removeProperty("--sand");
+    }
+
+    // ---- Server I/O ----
+    async function loadTheme() {
+      try {
+        const res = await fetch(API_URL, { cache: "no-store" });
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        const data = await res.json();
+        return (data && typeof data === "object") ? data : {};
+      } catch (err) {
+        console.warn("ThemeEditor: couldn't load theme:", err);
+        return {};
+      }
+    }
+    async function saveTheme(theme) {
+      const res = await fetch(API_URL, {
+        method:  "PUT",
+        headers: { "Content-Type": "application/json", ...ownerHeaders() },
+        body:    JSON.stringify(theme),
+      });
+      if (res.status === 401) {
+        if (window.OwnerGate) window.OwnerGate.promptForOwner();
+        throw new Error("Session expired — please re-enter the password.");
+      }
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || ("Save failed (HTTP " + res.status + ")"));
+      }
+    }
+    async function resetThemeServer() {
+      const res = await fetch(API_URL, { method: "DELETE", headers: ownerHeaders() });
+      if (res.status === 401) {
+        if (window.OwnerGate) window.OwnerGate.promptForOwner();
+        throw new Error("Session expired — please re-enter the password.");
+      }
+      if (!res.ok && res.status !== 404) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || ("Reset failed (HTTP " + res.status + ")"));
+      }
+    }
+
+    // ---- Modal helpers ----
+    function setStatus(text, kind) {
+      const el = document.getElementById("theme-status");
+      if (!el) return;
+      el.textContent = text;
+      el.classList.remove("is-error", "is-success");
+      if (kind) el.classList.add("is-" + kind);
+    }
+
+    function updateSwatches(primary, accent) {
+      const set = (sel, color) => {
+        const el = document.querySelector(sel);
+        if (el) el.style.background = color;
+      };
+      set('[data-preview="deep"]',    adjustLightness(primary, DEEP_DELTA));
+      set('[data-preview="primary"]', primary);
+      set('[data-preview="soft"]',    adjustLightness(primary, SOFT_DELTA));
+      set('[data-preview="accent"]',  accent);
+    }
+
+    async function openModal() {
+      // Fetch the freshest copy from the server every time the modal
+      // opens — covers the case where another device updated the theme
+      // since this page loaded. Snapshot for Cancel-revert.
+      const current = await loadTheme();
+      snapshot = { ...current };
+      const modal       = document.getElementById("theme-modal");
+      const primaryInput = document.getElementById("theme-primary");
+      const accentInput  = document.getElementById("theme-accent");
+      primaryInput.value = current.primary || DEFAULTS.primary;
+      accentInput.value  = current.accent  || DEFAULTS.accent;
+      updateSwatches(primaryInput.value, accentInput.value);
+      setStatus("", null);
+      modal.hidden = false;
+    }
+
+    function closeModal() {
+      document.getElementById("theme-modal").hidden = true;
+      setStatus("", null);
+    }
+
+    // Cancel = revert live-preview changes back to whatever was in effect
+    // when the modal opened. Then close.
+    function cancelModal() {
+      applyTheme(snapshot);
+      closeModal();
+    }
+
+    function wire() {
+      const triggerBtn   = document.getElementById("theme-edit-btn");
+      const primaryInput = document.getElementById("theme-primary");
+      const accentInput  = document.getElementById("theme-accent");
+      const saveBtn      = document.getElementById("theme-save-btn");
+      const resetBtn     = document.getElementById("theme-reset-btn");
+
+      if (triggerBtn) triggerBtn.addEventListener("click", () => { openModal(); });
+
+      // Live preview as the owner drags the native color wheel. `input`
+      // fires on every change (vs `change` which only fires on commit).
+      const onPickerChange = () => {
+        const primary = primaryInput.value;
+        const accent  = accentInput.value;
+        applyTheme({ primary, accent });
+        updateSwatches(primary, accent);
+      };
+      if (primaryInput) primaryInput.addEventListener("input", onPickerChange);
+      if (accentInput)  accentInput .addEventListener("input", onPickerChange);
+
+      if (saveBtn) saveBtn.addEventListener("click", async () => {
+        const theme = { primary: primaryInput.value, accent: accentInput.value };
+        const label = saveBtn.textContent;
+        saveBtn.disabled    = true;
+        saveBtn.textContent = "Saving…";
+        try {
+          await saveTheme(theme);
+          // Snapshot becomes the just-saved theme so a later Cancel
+          // doesn't revert what we just persisted.
+          snapshot = theme;
+          closeModal();
+        } catch (err) {
+          setStatus(err.message, "error");
+        } finally {
+          saveBtn.disabled    = false;
+          saveBtn.textContent = label;
+        }
+      });
+
+      // Backdrop + Cancel button both have data-theme-close.
+      document.querySelectorAll("[data-theme-close]").forEach((el) => {
+        el.addEventListener("click", cancelModal);
+      });
+
+      if (resetBtn) resetBtn.addEventListener("click", async () => {
+        if (!confirm("Reset site theme to the original colors?\n\nThis affects EVERY visitor on EVERY device.")) return;
+        try {
+          await resetThemeServer();
+          applyTheme({});
+          snapshot = {};
+          primaryInput.value = DEFAULTS.primary;
+          accentInput.value  = DEFAULTS.accent;
+          updateSwatches(DEFAULTS.primary, DEFAULTS.accent);
+          closeModal();
+        } catch (err) {
+          setStatus(err.message, "error");
+        }
+      });
+
+      // Esc closes (cancels). Only acts when the modal is actually open
+      // so we don't fight other Esc handlers on the page.
+      document.addEventListener("keydown", (e) => {
+        if (e.key !== "Escape") return;
+        const modal = document.getElementById("theme-modal");
+        if (modal && !modal.hidden) cancelModal();
+      });
+    }
+
+    async function init() {
+      // Apply saved theme as early as possible so the first paint is
+      // already on-brand. There's still a brief flash of the default
+      // green before this resolves; acceptable for now (YAGNI on a
+      // preload-cache optimization until someone complains).
+      const theme = await loadTheme();
+      applyTheme(theme);
+      wire();
+    }
+
+    return { init };
+  })();
 
 
   // ---------- Owner Gate (real server-side auth) ----------
@@ -3533,11 +3953,14 @@ const PORTFOLIO_DATA = {
     }
     // Gate first so the body.is-owner class is set before edit UI renders.
     OwnerGate.init();
-    // PersonalBio.init() is now async — it fetches the saved overrides
-    // from /api/personal. We MUST await it before the first render so
-    // the initial paint already reflects the server-side state (no flash
-    // of default content). Tiny latency cost for big consistency win.
-    await PersonalBio.init();
+    // ThemeEditor + PersonalBio both fetch from the server and apply
+    // their state before the first render. Run them in parallel —
+    // they're independent (theme = CSS vars, bio = data) so Promise.all
+    // shaves a round-trip off page load vs serial awaits.
+    await Promise.all([
+      window.ThemeEditor ? window.ThemeEditor.init() : Promise.resolve(),
+      PersonalBio.init(),
+    ]);
     renderHero(PORTFOLIO_DATA);
     renderPersonal(PORTFOLIO_DATA);
     renderGolf(PORTFOLIO_DATA);
