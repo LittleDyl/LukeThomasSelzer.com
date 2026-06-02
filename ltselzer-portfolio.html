@@ -310,6 +310,17 @@ h3 {
 .social-link .social-icon {
   font-size: 1.05rem;
   line-height: 1;
+  /* Flex centering so emoji and inline SVG land on the same baseline
+     as the text label next to them. Without this, SVGs sit slightly
+     above the text on some browsers. */
+  display: inline-flex;
+  align-items: center;
+}
+.social-link .social-icon svg {
+  /* The SVG itself uses em-relative width/height (1.1em), so it scales
+     with .social-icon's font-size. display:block kills the inline-image
+     baseline gap that would otherwise nudge it down a hair. */
+  display: block;
 }
 
 /* Owner-side social fieldset inside the edit form. */
@@ -2292,11 +2303,39 @@ const PORTFOLIO_DATA = {
   // both places automatically. (DRY + Open/Closed.)
   //   key         — also used as the form field name + PORTFOLIO_DATA.personal key
   //   label       — shown on the form input + as the link's aria-label
-  //   icon        — emoji shown on the visitor-side pill
+  //   icon        — emoji fallback shown on the visitor-side pill
+  //   iconSvg     — OPTIONAL inline SVG string. When present it's used
+  //                 instead of `icon`, letting us render the actual brand
+  //                 logo (Instagram's gradient camera, etc.) without a
+  //                 network request or external icon library. To add a
+  //                 brand logo to another platform: drop the <svg>…</svg>
+  //                 string here, no other code changes needed.
   //   urlPrefix   — used to build the URL when the owner enters a bare handle
   //   handlePrefix— optional char prepended to handle display (e.g. "@")
+  //
+  // 🎨 Instagram SVG below uses the official brand gradient. The fixed
+  //   id="ig-grad" is technically duplicated when the icon appears in
+  //   both the public pill row AND the owner edit form, but every browser
+  //   resolves `url(#ig-grad)` to the first match — both copies render
+  //   correctly. Cleaner than minting unique IDs at every call site.
+  const INSTAGRAM_LOGO_SVG = `
+<svg viewBox="0 0 24 24" width="1.1em" height="1.1em" aria-hidden="true" focusable="false">
+  <defs>
+    <linearGradient id="ig-grad" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%"   stop-color="#FED373"/>
+      <stop offset="25%"  stop-color="#F15245"/>
+      <stop offset="60%"  stop-color="#D92E7F"/>
+      <stop offset="90%"  stop-color="#9B36B7"/>
+      <stop offset="100%" stop-color="#515ECF"/>
+    </linearGradient>
+  </defs>
+  <rect x="2" y="2" width="20" height="20" rx="5" fill="url(#ig-grad)"/>
+  <circle cx="12" cy="12" r="4.5" fill="none" stroke="white" stroke-width="1.8"/>
+  <circle cx="17.5" cy="6.5" r="1.2" fill="white"/>
+</svg>`;
+
   const SOCIAL_PLATFORMS = [
-    { key: "instagram", label: "Instagram",   icon: "📷", urlPrefix: "https://instagram.com/",   handlePrefix: "@" },
+    { key: "instagram", label: "Instagram",   icon: "📷", iconSvg: INSTAGRAM_LOGO_SVG, urlPrefix: "https://instagram.com/",   handlePrefix: "@" },
     { key: "twitter",   label: "X / Twitter", icon: "🐦", urlPrefix: "https://x.com/",            handlePrefix: "@" },
     { key: "tiktok",    label: "TikTok",      icon: "🎵", urlPrefix: "https://tiktok.com/@",      handlePrefix: "@" },
     { key: "youtube",   label: "YouTube",     icon: "▶️", urlPrefix: "https://youtube.com/@",     handlePrefix: "@" },
@@ -2304,6 +2343,15 @@ const PORTFOLIO_DATA = {
     { key: "linkedin",  label: "LinkedIn",    icon: "💼", urlPrefix: "https://linkedin.com/in/",  handlePrefix: ""  },
     { key: "website",   label: "Website",     icon: "🔗", urlPrefix: "https://",                  handlePrefix: ""  },
   ];
+
+  // Single source of truth for "how do I draw this platform's icon?".
+  // Returns an HTML string ready for innerHTML. Caller code uses
+  // innerHTML rather than textContent so the SVG markup actually parses.
+  // Safe because both `icon` and `iconSvg` are hardcoded above — they
+  // never touch user input.
+  function platformIconHtml(platform) {
+    return platform.iconSvg || platform.icon || "";
+  }
 
   // Accepts either a full URL or a handle (with or without @) and returns
   // { href, label } — or null when the input is empty/unusable. Centralizing
@@ -2387,7 +2435,10 @@ const PORTFOLIO_DATA = {
       const icon = document.createElement("span");
       icon.className = "social-icon";
       icon.setAttribute("aria-hidden", "true");
-      icon.textContent = platform.icon;
+      // innerHTML so platforms with iconSvg actually get their SVG parsed.
+      // Safe input: the helper only ever returns hardcoded strings from
+      // SOCIAL_PLATFORMS, never anything user-submitted.
+      icon.innerHTML = platformIconHtml(platform);
       const text = document.createElement("span");
       text.textContent = platform.label;
       a.appendChild(icon);
@@ -2649,7 +2700,10 @@ const PORTFOLIO_DATA = {
         const label = document.createElement("label");
         label.className = "field";
         const span = document.createElement("span");
-        span.textContent = `${platform.icon} ${platform.label}`;
+        // innerHTML so the optional SVG logo parses; the trailing label
+        // is a plain string and safe to concatenate without escaping
+        // (it comes from SOCIAL_PLATFORMS, not user input).
+        span.innerHTML = `${platformIconHtml(platform)} ${platform.label}`;
         const input = document.createElement("input");
         input.type = "text";
         input.name = platform.key;
