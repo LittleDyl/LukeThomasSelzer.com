@@ -76,6 +76,28 @@ a { color: var(--green-deep); }
   background: #ddd;
 }
 
+/* ---------- Personal Bio in-tab photo ---------- */
+/* Large display photo inside the Personal Bio tab. Shares its URL
+   with .player-photo (the hero avatar) so a single upload updates
+   both. Auto-hidden via [hidden] when data.personal.photo is empty. */
+.personal-photo-figure {
+  margin: 0 0 1.4rem;
+  display: flex;
+  justify-content: center;
+}
+.personal-photo-figure[hidden] { display: none; }
+.personal-photo-figure img {
+  max-width: 100%;
+  /* Cap the rendered height so portrait-orientation phone shots don't
+     blow the layout out of the water. object-fit: contain preserves
+     the original aspect ratio inside the cap. */
+  max-height: 420px;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  background: #f0eee6;
+  object-fit: contain;
+}
+
 .eyebrow {
   text-transform: uppercase;
   letter-spacing: 0.25em;
@@ -533,84 +555,6 @@ h3 {
   font-size: 1.1rem;
   color: var(--green-deep);
   letter-spacing: 0.01em;
-}
-
-/* ---------- Photo Gallery (owner-curated public gallery) ----------
-   Intentionally piggybacks on the .swing-* form + card styles — the
-   forms are identical in structure (title, URL, file, submit). Only the
-   grid layout and media aspect differ, so those are the only new rules. */
-.photo-gallery { margin-top: 2.2rem; }
-.photo-gallery-grid {
-  display: grid;
-  /* Tighter min than the swing grid — photos read fine at 200px. */
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 0.9rem;
-  margin-top: 1rem;
-}
-.photo-card {
-  background: #fff;
-  border: 1px solid rgba(31, 77, 43, 0.15);
-  border-radius: var(--radius);
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
-}
-.photo-card-media {
-  position: relative;
-  width: 100%;
-  padding-bottom: 100%; /* square — predictable on any phone */
-  background: #f0eee6;
-  cursor: zoom-in;
-}
-.photo-card-media img {
-  position: absolute;
-  top: 0; left: 0;
-  width: 100%; height: 100%;
-  object-fit: cover;
-  display: block;
-}
-.photo-card-body {
-  padding: 0.6rem 0.8rem 0.8rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-}
-.photo-card-caption {
-  font-size: 0.88rem;
-  color: #333;
-  line-height: 1.35;
-  /* Two-line clamp keeps tall cards visually balanced. */
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-.photo-card-caption:empty { display: none; }
-
-/* Reuses .swing-card-delete styling — same red ghost button.
-   Just a class-level alias so we don't fight specificity later. */
-.photo-card .swing-card-delete { align-self: flex-end; }
-
-/* Lightbox: a single overlay element reused for every photo.
-   Built in JS and toggled via .is-open. Click backdrop or press Esc
-   to close. Kept minimal — no animations, no carousel (YAGNI). */
-.photo-lightbox {
-  position: fixed; inset: 0;
-  background: rgba(15, 25, 20, 0.88);
-  display: none;
-  align-items: center;
-  justify-content: center;
-  z-index: 100;
-  padding: 1.2rem;
-  cursor: zoom-out;
-}
-.photo-lightbox.is-open { display: flex; }
-.photo-lightbox img {
-  max-width: 100%;
-  max-height: 100%;
-  border-radius: 8px;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
 }
 
 /* ---------- Swing Videos (owner-curated public gallery) ---------- */
@@ -1177,7 +1121,6 @@ body.is-owner .owner-only { display: revert !important; }
       <button class="tab" role="tab" data-tab="golf" aria-selected="false">Golf Bio</button>
       <button class="tab" role="tab" data-tab="history" aria-selected="false">Season History</button>
       <button class="tab" role="tab" data-tab="swing" aria-selected="false">Swing Video</button>
-      <button class="tab" role="tab" data-tab="photos" aria-selected="false">Photos</button>
     </nav>
 
     <section class="tab-panel active" id="personal" role="tabpanel">
@@ -1187,6 +1130,13 @@ body.is-owner .owner-only { display: revert !important; }
       </div>
 
       <div id="personal-view">
+        <!-- Big, in-tab bio photo. Sources its src from data.personal.photo,
+             same URL field the hero round avatar uses — one upload, two
+             display slots (DRY). When the URL is empty the whole figure
+             hides itself; see #personal-photo-figure[hidden] in CSS. -->
+        <figure id="personal-photo-figure" class="personal-photo-figure" hidden>
+          <img id="personal-photo-large" alt="" loading="lazy" decoding="async">
+        </figure>
         <ul class="profile-list" id="personal-list"></ul>
         <p class="muted" id="personal-bio" style="margin-top:1.4rem"></p>
         <!-- Populated by PersonalBio module from SOCIAL_PLATFORMS.
@@ -1223,8 +1173,8 @@ body.is-owner .owner-only { display: revert !important; }
                  Picking a file uploads it to the Supabase `photos` bucket
                  and auto-fills the URL above. The Save button still runs
                  the same handleSubmit() — file upload here is pure UX sugar,
-                 not a separate persistence path. (DRY: same storage as
-                 PhotoGallery; SRP: this label only handles the upload.) -->
+                 not a separate persistence path. (SRP: this label only
+                 handles the upload, not the save.) -->
             <span class="personal-photo-upload">
               <input type="file" id="personal-photo-file" accept="image/*"
                      style="font-size: 0.85rem; margin-top: 0.4rem;">
@@ -1359,64 +1309,6 @@ body.is-owner .owner-only { display: revert !important; }
       </div>
     </section>
 
-    <section class="tab-panel" id="photos" role="tabpanel">
-      <h2>Photos</h2>
-
-      <!-- ===== Photo Gallery =====
-           Owner-curated public gallery (mirror of Swing Videos).
-           Visitors see the grid; owner sees upload form + delete buttons.
-           Wired by window.PhotoGallery. Images upload direct to the
-           Supabase "photos" bucket (skipping the 5 MB Netlify cap);
-           only the resulting public URL + caption land in Netlify Blobs. -->
-      <div class="photo-gallery">
-        <div id="photo-gallery-grid" class="photo-gallery-grid">
-          <p class="swing-empty">Loading photos…</p>
-        </div>
-
-        <!-- ===== Owner-only Add controls =====
-             Same placement convention as the swing gallery: management UI
-             below the public content, hidden once the gallery hits its cap. -->
-        <div class="owner-only swing-owner-controls">
-          <h3 class="swing-section-heading" id="photo-owner-heading">Add a Photo</h3>
-        </div>
-
-        <p id="photo-limit-message" class="swing-limit-message owner-only" hidden role="status">
-          🛑 Gallery is full (limit: <span id="photo-limit-max">24</span>). Delete a photo above to add another.
-        </p>
-
-        <form id="photo-upload-form" class="swing-upload-form owner-only" autocomplete="off">
-          <label class="swing-field">
-            <span>Caption (optional)</span>
-            <input type="text" name="caption" maxlength="140"
-                   placeholder="e.g. Drip Golf Tour Championship — final round">
-          </label>
-
-          <!-- Both inputs visible. File wins if both are provided
-               (picking a file is the more deliberate action). Same
-               UX pattern as the swing video form — DRY in spirit. -->
-          <label class="swing-field">
-            <span>📎 Paste a public image link (.jpg / .png / .webp)</span>
-            <input type="url" name="photoUrl" maxlength="500"
-                   placeholder="https://...">
-          </label>
-
-          <div class="swing-or-divider" aria-hidden="true">— or —</div>
-
-          <label class="swing-field">
-            <span>📁 Choose a photo from this device</span>
-            <!-- accept="image/*" lets phones offer the camera roll directly.
-                 Files upload directly to Supabase Storage — no Netlify
-                 Functions payload cap. -->
-            <input type="file" name="file" accept="image/*">
-          </label>
-
-          <div class="swing-upload-actions">
-            <button type="submit" class="swing-upload-btn">⬆️ Add Photo</button>
-            <span class="swing-upload-status" id="photo-upload-status" role="status" aria-live="polite"></span>
-          </div>
-        </form>
-      </div>
-    </section>
   </main>
 
   <script>
@@ -2410,7 +2302,27 @@ const PORTFOLIO_DATA = {
     const bioEl = $("#personal-bio");
     if (bioEl) bioEl.textContent = data.personal.bio || DEFAULT_BIO_TEXT;
 
+    renderPersonalPhoto(data);
     renderSocials(data);
+  }
+
+  // Show the in-tab photo if (and only if) a photo URL is set. Sources
+  // the same data.personal.photo as the hero avatar — one upload, two
+  // display slots (DRY). Hidden via the [hidden] attribute when there's
+  // no URL, and also if the image fails to load (broken-link guardrail).
+  function renderPersonalPhoto(data) {
+    const fig = $("#personal-photo-figure");
+    const img = $("#personal-photo-large");
+    if (!fig || !img) return;
+    const url = data.personal.photo;
+    if (!url) { fig.hidden = true; return; }
+    img.src = url;
+    img.alt = data.personal.name || "Player photo";
+    fig.hidden = false;
+    // If the image can't load (404, bucket down, etc.), hide the figure
+    // rather than showing an ugly broken-image icon. Mirrors the hero
+    // photo's onerror behavior in renderHero().
+    img.onerror = () => { fig.hidden = true; };
   }
 
   // Render the visitor-facing row of social pills. Driven entirely by
@@ -2792,9 +2704,9 @@ const PORTFOLIO_DATA = {
         if (kind) status.classList.add("is-" + kind);
       }
 
-      // 25 MB matches PhotoGallery's MAX_UPLOAD_BYTES — kept as a literal
-      // here on purpose (the modules don't share scope and one global
-      // constant would be its own DRY-sin).
+      // Plenty of headroom for any phone photo. Supabase bucket-level
+      // policy will reject anything larger anyway; this just gives a
+      // friendlier client-side message before the upload starts.
       const MAX_BYTES = 25 * 1024 * 1024;
 
       fileInput.addEventListener("change", async () => {
@@ -2879,7 +2791,7 @@ const PORTFOLIO_DATA = {
   // Single responsibility: take a File, push it to Supabase Storage,
   // return a public URL. Replaces the old /api/swing-upload path so
   // we bypass Netlify Functions' 5 MB payload cap. Keep it tiny —
-  // anything more belongs in the caller (SwingVideos, PhotoGallery, …).
+  // anything more belongs in the caller (SwingVideos, PersonalBio, …).
   //
   // Buckets used (must exist + be public in the Supabase dashboard):
   //   swing-videos — .mp4 / .webm / .mov
@@ -3208,266 +3120,6 @@ const PORTFOLIO_DATA = {
   })();
 
 
-  // ---------- PhotoGallery module: owner-curated public photo gallery ----------
-  // Sibling of SwingVideos. Same public-GET / owner-write pattern, same
-  // password header convention, same single-source-of-truth cache. We do
-  // NOT factor out a shared base — the differences (image vs <video>, no
-  // url-classifier, square aspect, lightbox) outweigh the savings, and
-  // "clever" inheritance here would hurt readability more than help it.
-  window.PhotoGallery = (function () {
-    const API        = "/api/photos";
-    const PW_KEY     = "ltselzer_owner_pw"; // ⚠️ must match OwnerGate
-    // Direct-to-Supabase upload — same 200 MB ceiling Supabase bucket
-    // policies use for swing videos. For photos this is overkill; we add
-    // a friendlier soft limit below so a user dragging a 50 MB camera RAW
-    // gets a clear message rather than a slow upload.
-    const MAX_UPLOAD_BYTES = 25 * 1024 * 1024; // 25 MB — plenty for any phone photo
-    // ⚠️ Mirror of MAX_PHOTOS in /api/photos. Keep BOTH in sync.
-    const MAX_PHOTOS = 24;
-    // Anything starting with image/ — covers jpeg/png/webp/heic/gif/avif.
-    // We check the prefix instead of an explicit set so iPhones (which
-    // sometimes report image/heic, sometimes image/heif) just work.
-    function isImageType(t) { return typeof t === "string" && t.startsWith("image/"); }
-
-    let cache = [];
-
-    function ownerHeaders() {
-      return { "X-Owner-Password": sessionStorage.getItem(PW_KEY) || "" };
-    }
-
-    // Same HTML-escape utility SwingVideos uses. Duplicated here on
-    // purpose — 6 lines isn't worth the import gymnastics, and pulling
-    // it into a shared scope means another global. (YAGNI.)
-    function esc(s) {
-      return String(s ?? "")
-        .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
-    }
-
-    function cardHtml(p) {
-      const safeCaption = esc(p.caption);
-      const safeUrl     = esc(p.photoUrl);
-      // loading="lazy" + decoding="async" keep long galleries snappy.
-      // The alt text falls back to a generic label when no caption
-      // exists — empty alt would hide the image from screen readers.
-      const altText = safeCaption || "Portfolio photo";
-      return `
-        <article class="photo-card" data-id="${esc(p._id)}">
-          <div class="photo-card-media" data-photo-zoom="${safeUrl}">
-            <img src="${safeUrl}" alt="${altText}" loading="lazy" decoding="async">
-          </div>
-          <div class="photo-card-body">
-            <div class="photo-card-caption">${safeCaption}</div>
-            <button type="button" class="swing-card-delete owner-only"
-                    data-photo-delete="${esc(p._id)}">🗑️ Remove</button>
-          </div>
-        </article>`;
-    }
-
-    function syncLimitUI() {
-      const atLimit  = cache.length >= MAX_PHOTOS;
-      const form     = document.getElementById("photo-upload-form");
-      const message  = document.getElementById("photo-limit-message");
-      const heading  = document.getElementById("photo-owner-heading");
-      const maxSpan  = document.getElementById("photo-limit-max");
-      if (form)    form.hidden    = atLimit;
-      if (message) message.hidden = !atLimit;
-      if (heading) heading.textContent = atLimit ? "Gallery is full" : "Add a Photo";
-      if (maxSpan) maxSpan.textContent = String(MAX_PHOTOS);
-    }
-
-    function render() {
-      const grid = document.getElementById("photo-gallery-grid");
-      if (!grid) return;
-      if (cache.length === 0) {
-        grid.innerHTML = `<p class="swing-empty">No photos yet — add one from owner mode.</p>`;
-      } else {
-        grid.innerHTML = cache.map(cardHtml).join("");
-      }
-      syncLimitUI();
-    }
-
-    async function fetchAll() {
-      try {
-        const res = await fetch(API, { cache: "no-store" });
-        if (!res.ok) throw new Error("HTTP " + res.status);
-        const body = await res.json();
-        cache = Array.isArray(body.photos) ? body.photos : [];
-      } catch (err) {
-        console.warn("PhotoGallery: couldn't load photos:", err);
-        cache = [];
-      }
-      render();
-    }
-
-    async function handleSubmitResponse(res) {
-      if (res.status === 401) {
-        if (window.OwnerGate) window.OwnerGate.promptForOwner();
-        throw new Error("Session expired — please re-enter the password.");
-      }
-      const body = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(body.error || ("Submit failed (HTTP " + res.status + ")"));
-      cache.unshift(body.photo);
-      render();
-    }
-
-    async function submitUrl({ caption, photoUrl }) {
-      const res = await fetch(API, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", ...ownerHeaders() },
-        body:    JSON.stringify({ caption, photoUrl }),
-      });
-      await handleSubmitResponse(res);
-    }
-
-    async function submitFile({ caption, file }) {
-      if (!window.SupabaseStorage) {
-        throw new Error("SupabaseStorage module missing — can't upload files.");
-      }
-      const photoUrl = await window.SupabaseStorage.uploadFile(file, "photos");
-      await submitUrl({ caption, photoUrl });
-    }
-
-    async function remove(id) {
-      const res = await fetch(`${API}?id=${encodeURIComponent(id)}`, {
-        method: "DELETE",
-        headers: ownerHeaders(),
-      });
-      if (res.status === 401) {
-        if (window.OwnerGate) window.OwnerGate.promptForOwner();
-        throw new Error("Session expired — please re-enter the password.");
-      }
-      if (!res.ok && res.status !== 404) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body.error || ("Delete failed (HTTP " + res.status + ")"));
-      }
-      cache = cache.filter((p) => p._id !== id);
-      render();
-    }
-
-    function setStatus(text, kind) {
-      const el = document.getElementById("photo-upload-status");
-      if (!el) return;
-      el.textContent = text;
-      el.classList.remove("is-error", "is-success");
-      if (kind) el.classList.add("is-" + kind);
-    }
-
-    // ---- Lightbox: one DOM node reused for every zoom ----
-    // Built lazily on first click; closes on backdrop click or Escape.
-    let lightbox = null;
-    function ensureLightbox() {
-      if (lightbox) return lightbox;
-      lightbox = document.createElement("div");
-      lightbox.className = "photo-lightbox";
-      lightbox.innerHTML = `<img alt="">`;
-      lightbox.addEventListener("click", closeLightbox);
-      document.body.appendChild(lightbox);
-      document.addEventListener("keydown", (e) => {
-        if (e.key === "Escape") closeLightbox();
-      });
-      return lightbox;
-    }
-    function openLightbox(url) {
-      const lb  = ensureLightbox();
-      const img = lb.querySelector("img");
-      img.src = url;
-      lb.classList.add("is-open");
-    }
-    function closeLightbox() {
-      if (lightbox) lightbox.classList.remove("is-open");
-    }
-
-    function wireContainer() {
-      const root = document.querySelector(".photo-gallery");
-      if (!root) return;
-
-      // Single delegated click handler covers both delete (owner) and
-      // zoom (everyone). Cards get re-rendered constantly; the container
-      // is stable, so this listener never has to be re-attached.
-      root.addEventListener("click", async (e) => {
-        const delBtn = e.target.closest("[data-photo-delete]");
-        if (delBtn) {
-          const id = delBtn.dataset.photoDelete;
-          if (!id) return;
-          if (!confirm("Remove this photo?")) return;
-          try { await remove(id); }
-          catch (err) { alert("Couldn't remove:\n" + err.message); }
-          return;
-        }
-        const zoom = e.target.closest("[data-photo-zoom]");
-        if (zoom) openLightbox(zoom.dataset.photoZoom);
-      });
-    }
-
-    function wireForm() {
-      const form = document.getElementById("photo-upload-form");
-      if (!form) return;
-      const submitBtn = form.querySelector('button[type="submit"]');
-
-      function hasPickedFile(picked) {
-        return picked instanceof File && picked.size > 0;
-      }
-
-      form.addEventListener("submit", async (e) => {
-        e.preventDefault();
-        const data     = new FormData(form);
-        const caption  = (data.get("caption")  || "").toString().trim();
-        const photoUrl = (data.get("photoUrl") || "").toString().trim();
-        const picked   = data.get("file");
-        const fileMode = hasPickedFile(picked);
-
-        if (!fileMode && !photoUrl) {
-          setStatus("Paste a photo link or choose a file.", "error");
-          return;
-        }
-        if (cache.length >= MAX_PHOTOS) {
-          setStatus(`Gallery is full (limit: ${MAX_PHOTOS}). Delete one first.`, "error");
-          return;
-        }
-
-        const originalLabel = submitBtn.textContent;
-        submitBtn.disabled  = true;
-        try {
-          if (fileMode) {
-            if (!isImageType(picked.type)) {
-              throw new Error(
-                `That file ("${picked.type || "unknown"}") isn't an image. ` +
-                `Try a .jpg, .png, .webp, or .heic — or paste an image URL instead.`);
-            }
-            if (picked.size > MAX_UPLOAD_BYTES) {
-              const mb = (picked.size / 1024 / 1024).toFixed(1);
-              throw new Error(
-                `That photo is ${mb} MB — limit is ${MAX_UPLOAD_BYTES / 1024 / 1024} MB. ` +
-                `Try a smaller / compressed copy.`);
-            }
-            submitBtn.textContent = "Uploading…";
-            setStatus("Uploading…", null);
-            await submitFile({ caption, file: picked });
-          } else {
-            submitBtn.textContent = "Adding…";
-            setStatus("Adding…", null);
-            await submitUrl({ caption, photoUrl });
-          }
-          form.reset();
-          setStatus("Added! ✨", "success");
-        } catch (err) {
-          setStatus(err.message, "error");
-        } finally {
-          submitBtn.disabled    = false;
-          submitBtn.textContent = originalLabel;
-        }
-      });
-    }
-
-    async function init() {
-      wireContainer();
-      wireForm();
-      await fetchAll();
-    }
-
-    return { init };
-  })();
 
 
   // ---------- Owner Gate (real server-side auth) ----------
@@ -3685,11 +3337,6 @@ const PORTFOLIO_DATA = {
     // controls only appear once OwnerGate flips body.is-owner.
     if (window.SwingVideos) {
       window.SwingVideos.init();
-    }
-    // Photo gallery — same fire-and-forget pattern, separate module so
-    // a failure in one gallery doesn't take the other one down.
-    if (window.PhotoGallery) {
-      window.PhotoGallery.init();
     }
   });
 })();
