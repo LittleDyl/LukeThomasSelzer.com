@@ -2609,20 +2609,35 @@ const PORTFOLIO_DATA = {
   }
 
   // ---------- Personal Bio edit module ----------
-  // Persists user-edited fields to localStorage and merges them over the
-  // auto-generated PORTFOLIO_DATA.personal on every page load. Single Responsibility:
-  // this module only owns persistence + the edit form wiring. Rendering stays
-  // inside renderHero() / renderPersonal() — they don't even know we exist.
+  // Persists user-edited fields to /api/personal (Netlify Blobs) and
+  // merges them over the auto-generated PORTFOLIO_DATA.personal on every
+  // page load. Public for ALL visitors on ALL devices — used to be
+  // localStorage-only, which scoped edits to the editor's own browser.
+  // Single Responsibility: this module owns persistence + the edit form
+  // wiring. Rendering stays inside renderHero() / renderPersonal() —
+  // they don't even know we exist.
   const PersonalBio = (() => {
-    const LS_KEY = "ltselzer_personal_overrides";
+    const API_URL = "/api/personal";
+    const PW_KEY  = "ltselzer_owner_pw"; // ⚠️ must match OwnerGate
+    // One-time-migration key. If a user had edits in the legacy
+    // localStorage slot, we use them as a fallback read on first load
+    // and push them to the server on the next save, then clear the
+    // localStorage entry. After that, server is the only source.
+    const LEGACY_LS_KEY = "ltselzer_personal_overrides";
+
     // Core profile fields + every social platform key. Building the social
     // keys from SOCIAL_PLATFORMS keeps this list in sync automatically.
+    // ⚠️ Mirror with ALLOWED_FIELDS in netlify/functions/personal.mjs.
     const FIELDS = [
       "name", "hometown", "class_year", "age", "currently_attending",
       "photo", "bio",
       ...SOCIAL_PLATFORMS.map((p) => p.key),
     ];
     let originalPersonal = null; // snapshot for "Reset to Defaults"
+
+    function ownerHeaders() {
+      return { "X-Owner-Password": sessionStorage.getItem(PW_KEY) || "" };
+    }
 
     // Build the owner-side social inputs from SOCIAL_PLATFORMS. Called once
     // on init — the form elements then participate in populateForm /
@@ -2648,17 +2663,74 @@ const PORTFOLIO_DATA = {
       grid.dataset.built = "1";
     }
 
-    function loadOverrides() {
-      try { return JSON.parse(localStorage.getItem(LS_KEY) || "{}"); }
-      catch { return {}; }
-    }
-    function saveOverrides(obj) {
-      try { localStorage.setItem(LS_KEY, JSON.stringify(obj)); }
-      catch (err) { console.warn("PersonalBio: couldn't persist", err); }
+    // Read overrides from the server. Falls back to the legacy localStorage
+    // slot if the server returns nothing AND localStorage has something —
+    // this preserves existing edits for the one-time migration window. On
+    // the next successful Save the localStorage entry gets nuked (see
+    // saveOverrides).
+    async function loadOverrides() {
+      try {
+        const res = await fetch(API_URL, { cache: "no-store" });
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        const data = await res.json();
+        const obj  = (data && typeof data === "object") ? data : {};
+        // If the server is empty but localStorage has legacy data,
+        // surface that so the editor doesn't lose their old work.
+        if (Object.keys(obj).length === 0) {
+          const legacy = readLegacyOverrides();
+          if (Object.keys(legacy).length > 0) return legacy;
+        }
+        return obj;
+      } catch (err) {
+        console.warn("PersonalBio: couldn't load from server, falling back to localStorage:", err);
+        return readLegacyOverrides();
+      }
     }
 
-    function applyOverrides() {
-      const o = loadOverrides();
+    function readLegacyOverrides() {
+      try { return JSON.parse(localStorage.getItem(LEGACY_LS_KEY) || "{}"); }
+      catch { return {}; }
+    }
+
+    // Save the FULL overrides object to the server. Throws on auth/network
+    // failure so the caller can surface a useful message. On success, also
+    // clear the legacy localStorage slot — after the first server-side save
+    // we never want to read from localStorage again.
+    async function saveOverrides(obj) {
+      const res = await fetch(API_URL, {
+        method:  "PUT",
+        headers: { "Content-Type": "application/json", ...ownerHeaders() },
+        body:    JSON.stringify(obj),
+      });
+      if (res.status === 401) {
+        if (window.OwnerGate) window.OwnerGate.promptForOwner();
+        throw new Error("Session expired — please re-enter the password.");
+      }
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || ("Save failed (HTTP " + res.status + ")"));
+      }
+      try { localStorage.removeItem(LEGACY_LS_KEY); } catch { /* fine */ }
+    }
+
+    async function deleteOverrides() {
+      const res = await fetch(API_URL, {
+        method:  "DELETE",
+        headers: ownerHeaders(),
+      });
+      if (res.status === 401) {
+        if (window.OwnerGate) window.OwnerGate.promptForOwner();
+        throw new Error("Session expired — please re-enter the password.");
+      }
+      if (!res.ok && res.status !== 404) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || ("Reset failed (HTTP " + res.status + ")"));
+      }
+      try { localStorage.removeItem(LEGACY_LS_KEY); } catch { /* fine */ }
+    }
+
+    async function applyOverrides() {
+      const o = await loadOverrides();
       FIELDS.forEach((f) => {
         if (o[f] != null && o[f] !== "") PORTFOLIO_DATA.personal[f] = o[f];
       });
@@ -2685,7 +2757,7 @@ const PORTFOLIO_DATA = {
       });
     }
 
-    function handleSubmit(e) {
+    async function handleSubmit(e) {
       e.preventDefault();
       const form = e.currentTarget;
       const fd = new FormData(form);
@@ -2694,25 +2766,50 @@ const PORTFOLIO_DATA = {
         const v = (fd.get(f) || "").toString().trim();
         if (v) next[f] = v;
       });
-      saveOverrides(next);
-      // Apply on top of originals so removing a field reverts to default.
-      PORTFOLIO_DATA.personal = { ...originalPersonal, ...next };
-      rerenderAll();
-      toggleEditMode(false);
+
+      // Lock the Save button while the network request is in flight.
+      // Stops double-submits and gives the user real visual feedback.
+      const submitBtn = form.querySelector('button[type="submit"]');
+      const originalLabel = submitBtn ? submitBtn.textContent : null;
+      if (submitBtn) {
+        submitBtn.disabled    = true;
+        submitBtn.textContent = "Saving…";
+      }
+
+      try {
+        await saveOverrides(next);
+        // Apply on top of originals so removing a field reverts to default.
+        PORTFOLIO_DATA.personal = { ...originalPersonal, ...next };
+        rerenderAll();
+        toggleEditMode(false);
+      } catch (err) {
+        alert("Couldn't save:\n" + err.message);
+      } finally {
+        if (submitBtn) {
+          submitBtn.disabled    = false;
+          submitBtn.textContent = originalLabel;
+        }
+      }
     }
 
-    function handleReset() {
-      if (!confirm("Reset all personal bio fields back to the originals?")) return;
-      try { localStorage.removeItem(LS_KEY); } catch {}
-      PORTFOLIO_DATA.personal = { ...originalPersonal };
-      rerenderAll();
-      toggleEditMode(false);
+    async function handleReset() {
+      // The reset now hits ALL visitors, not just the editor's browser —
+      // make sure they know that before they nuke the bio.
+      if (!confirm("Reset all personal bio fields back to the originals?\n\nThis affects EVERY visitor on EVERY device.")) return;
+      try {
+        await deleteOverrides();
+        PORTFOLIO_DATA.personal = { ...originalPersonal };
+        rerenderAll();
+        toggleEditMode(false);
+      } catch (err) {
+        alert("Couldn't reset:\n" + err.message);
+      }
     }
 
-    function init() {
+    async function init() {
       // Snapshot BEFORE applying overrides so we can always restore defaults.
       originalPersonal = { ...PORTFOLIO_DATA.personal };
-      applyOverrides();
+      await applyOverrides();
       buildSocialInputs();
 
       const editBtn   = document.getElementById("personal-edit-btn");
@@ -3358,9 +3455,11 @@ const PORTFOLIO_DATA = {
     }
     // Gate first so the body.is-owner class is set before edit UI renders.
     OwnerGate.init();
-    // PersonalBio.init() must run BEFORE the first render so any saved
-    // overrides are merged into PORTFOLIO_DATA.personal up front.
-    PersonalBio.init();
+    // PersonalBio.init() is now async — it fetches the saved overrides
+    // from /api/personal. We MUST await it before the first render so
+    // the initial paint already reflects the server-side state (no flash
+    // of default content). Tiny latency cost for big consistency win.
+    await PersonalBio.init();
     renderHero(PORTFOLIO_DATA);
     renderPersonal(PORTFOLIO_DATA);
     renderGolf(PORTFOLIO_DATA);
