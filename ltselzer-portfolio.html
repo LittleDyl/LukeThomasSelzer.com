@@ -1620,7 +1620,10 @@ body.is-owner .owner-only { display: revert !important; }
 
           <label class="swing-field">
             <span>Date</span>
-            <input type="date" name="date">
+            <!-- min/max scope the year scroller to the active seasons.
+                 Get overwritten at boot by clampDateInputsToSeasons()
+                 using UserScores.SEASONS as the single source of truth. -->
+            <input type="date" name="date" min="2024-01-01" max="2026-12-31">
           </label>
 
           <label class="swing-field">
@@ -2500,8 +2503,11 @@ const PORTFOLIO_DATA = {
                  YYYY-MM-DD string which collectFormData() normalizes
                  back to the M/D/YYYY convention used by every other
                  entry in the blob (so the rendered date stays uniform
-                 across scraped + manual + graduated tournaments). -->
-            <input type="date" name="date" required />
+                 across scraped + manual + graduated tournaments).
+                 min/max scope the year scroller to the active seasons —
+                 clampDateInputsToSeasons() reasserts these at boot from
+                 UserScores.SEASONS so this stays in sync automatically. -->
+            <input type="date" name="date" required min="2024-01-01" max="2026-12-31" />
           </label>
         </div>
         <div class="form-row">
@@ -4480,7 +4486,31 @@ const PORTFOLIO_DATA = {
     if (window.UpcomingTournaments) {
       window.UpcomingTournaments.init();
     }
+
+    // Pin every <input type="date"> to the active SEASONS range. Static
+    // min/max in the markup is a sensible fallback for first paint, but
+    // re-asserting here means UserScores.SEASONS is the SINGLE source of
+    // truth — extend that array and both pickers auto-extend with zero
+    // other edits. Runs AFTER UserScores.init so every dynamically-built
+    // History form already exists in the DOM.
+    clampDateInputsToSeasons();
   });
+
+  // Helper kept at module scope so the boot block above stays readable.
+  // Pure DOM tweak — no side effects beyond setting two attributes on
+  // existing inputs, so it's safe to re-run if a form gets rebuilt.
+  function clampDateInputsToSeasons() {
+    const seasons = (window.UserScores && window.UserScores.SEASONS) || [];
+    if (!seasons.length) return;
+    const years = seasons.map(Number).filter((n) => Number.isFinite(n));
+    if (!years.length) return;
+    const min = `${Math.min(...years)}-01-01`;
+    const max = `${Math.max(...years)}-12-31`;
+    document.querySelectorAll('input[type="date"]').forEach((input) => {
+      input.min = min;
+      input.max = max;
+    });
+  }
 })();
 
 </script>
