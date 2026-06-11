@@ -39,6 +39,17 @@ function isPast(dateStr) {
   return ts < startOfTodayUTC;
 }
 
+// Convert an ISO yyyy-mm-dd to the legacy M/D/YYYY format used by every
+// scraped + manually-added tournament in PORTFOLIO_DATA. Keeps the data
+// shape in the played-tournaments blob homogeneous so the History sort
+// (and any future M/D/YYYY-assuming consumer) just works.
+function isoToUsDate(raw) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec((raw || "").trim());
+  if (!m) return (raw || "").toString();
+  const [, y, mo, d] = m;
+  return `${parseInt(mo, 10)}/${parseInt(d, 10)}/${y}`;
+}
+
 // Convert the "upcoming" schema to the "played" schema. We preserve _id
 // (so any client that had it cached doesn't end up with a phantom dupe)
 // and stash the original location/notes/link in fields the History
@@ -53,7 +64,9 @@ function toPlayedShape(upcoming) {
   return {
     _id:      upcoming._id || (Date.now().toString(36) + Math.random().toString(36).slice(2, 8)),
     year,
-    date:     upcoming.date     || "",
+    // Normalize to M/D/YYYY so the History sort treats graduated entries
+    // identically to scraped ones (DRY: one date convention in the blob).
+    date:     isoToUsDate(upcoming.date),
     name:     upcoming.name     || "",
     division: upcoming.division || "",
     place:    "",                 // TBD — owner fills in after the round.

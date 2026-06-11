@@ -2832,13 +2832,40 @@ const PORTFOLIO_DATA = {
   }
 
   // ---------- Date helpers ----------
-  // Parse "M/D/YYYY" → Date for sorting. Junk dates fall to epoch.
-  function parseUSDate(s) {
-    const m = /^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/.exec((s || "").trim());
-    if (!m) return new Date(0);
-    let [, mo, d, y] = m;
-    if (y.length === 2) y = "20" + y;
-    return new Date(+y, +mo - 1, +d);
+  // Parse a tournament date string → Date for sorting.
+  //
+  // Accepts THREE formats so every source feeds the same sort cleanly:
+  //   1. "M/D/YYYY" or "M/D/YY"   — scraped data + manual History add form.
+  //   2. "YYYY-MM-DD"             — ISO, used by <input type="date"> in the
+  //                                  Upcoming form and by graduated entries.
+  //   3. Anything Date.parse understands — last-resort fallback so a stray
+  //                                  format never silently sinks to epoch.
+  //
+  // Anything truly unparseable returns new Date(0) (epoch) so it sorts to
+  // the bottom rather than throwing. Same contract as the old parseUSDate.
+  function parseTournamentDate(s) {
+    const raw = (s || "").trim();
+    if (!raw) return new Date(0);
+
+    // Format 1: M/D/YYYY or M/D/YY
+    const us = /^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/.exec(raw);
+    if (us) {
+      let [, mo, d, y] = us;
+      if (y.length === 2) y = "20" + y;
+      return new Date(+y, +mo - 1, +d);
+    }
+
+    // Format 2: ISO YYYY-MM-DD (local time, NOT UTC — avoids the
+    // "my Sept 5 tournament shows as Sept 4" off-by-one in negative TZs).
+    const iso = /^(\d{4})-(\d{2})-(\d{2})$/.exec(raw);
+    if (iso) {
+      const [, y, mo, d] = iso;
+      return new Date(+y, +mo - 1, +d);
+    }
+
+    // Format 3: fallback. Date.parse is permissive but consistent.
+    const ts = Date.parse(raw);
+    return Number.isNaN(ts) ? new Date(0) : new Date(ts);
   }
 
   // Merge scraped + user tournaments, newest first.
@@ -2846,7 +2873,7 @@ const PORTFOLIO_DATA = {
     const scraped = (PORTFOLIO_DATA.seasons[year] || []).slice();
     const user = (window.UserScores ? window.UserScores.loadSeason(year) : []).slice();
     return [...user, ...scraped].sort(
-      (a, b) => parseUSDate(b.date) - parseUSDate(a.date)
+      (a, b) => parseTournamentDate(b.date) - parseTournamentDate(a.date)
     );
   }
 
