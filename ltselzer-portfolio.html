@@ -887,6 +887,12 @@ h3 {
   flex-wrap: wrap;
   gap: 0.5rem;
 }
+/* [hidden] (specificity 0,1,0) ties .user-toolbar's class specificity,
+   so the class's `display: flex` was winning by source order and the
+   toolbar stayed visible when JS set its hidden attribute. This rule
+   restores the expected behavior with the same specificity but later
+   source order — no !important needed. */
+.user-toolbar[hidden] { display: none; }
 
 .btn {
   border: none;
