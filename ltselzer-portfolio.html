@@ -2432,7 +2432,12 @@ const PORTFOLIO_DATA = {
           </label>
           <label>
             <span>Date *</span>
-            <input type="text" name="date" required placeholder="M/D/YYYY" pattern="\\d{1,2}/\\d{1,2}/\\d{2,4}" />
+            <!-- Native date picker. Browsers feed FormData an ISO
+                 YYYY-MM-DD string which collectFormData() normalizes
+                 back to the M/D/YYYY convention used by every other
+                 entry in the blob (so the rendered date stays uniform
+                 across scraped + manual + graduated tournaments). -->
+            <input type="date" name="date" required />
           </label>
         </div>
         <div class="form-row">
@@ -2533,6 +2538,17 @@ const PORTFOLIO_DATA = {
     });
   }
 
+  // Native <input type="date"> emits ISO YYYY-MM-DD. Every other date
+  // in the blob (scraped + graduated) is M/D/YYYY, so we normalize on
+  // the way out — single date convention in storage = single rendering
+  // path in the cards (no per-entry format detection).
+  function normalizeIsoToUs(raw) {
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec((raw || "").trim());
+    if (!m) return (raw || "").trim();
+    const [, y, mo, d] = m;
+    return `${parseInt(mo, 10)}/${parseInt(d, 10)}/${y}`;
+  }
+
   function collectFormData(form) {
     const data = new FormData(form);
     const rounds = [];
@@ -2545,7 +2561,7 @@ const PORTFOLIO_DATA = {
     });
 
     return {
-      date:     (data.get("date")     || "").trim(),
+      date:     normalizeIsoToUs(data.get("date")),
       name:     (data.get("name")     || "").trim(),
       division: (data.get("division") || "").trim(),
       place:    (data.get("place")    || "").trim(),
