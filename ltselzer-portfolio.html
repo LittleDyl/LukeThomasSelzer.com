@@ -2982,10 +2982,25 @@ const PORTFOLIO_DATA = {
     if (t._userAdded && window.UserScores) {
       const del = el("button", "btn-delete", "Delete");
       del.type = "button";
-      del.addEventListener("click", () => {
+      // deleteTournament is async — it only prunes the cache AFTER the
+      // network DELETE resolves. The previous fire-and-forget version
+      // re-rendered immediately, reading the still-stale cache, so the
+      // card flashed back in until a later click happened to fire after
+      // the network race had quietly resolved (= "3 clicks to delete").
+      // Awaiting + button-disable kills the race and prevents double-fire.
+      del.addEventListener("click", async () => {
         if (!confirm(`Delete "${t.name}"?`)) return;
-        window.UserScores.deleteTournament(year, t._id);
-        window.rerenderSeason(year);
+        del.disabled = true;
+        const originalLabel = del.textContent;
+        del.textContent = "Deleting…";
+        try {
+          await window.UserScores.deleteTournament(year, t._id);
+          window.rerenderSeason(year);
+        } catch (err) {
+          alert("Couldn't delete:\n" + err.message);
+          del.disabled  = false;
+          del.textContent = originalLabel;
+        }
       });
       card.appendChild(del);
     }
