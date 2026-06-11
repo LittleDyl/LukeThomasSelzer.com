@@ -2561,6 +2561,17 @@ const PORTFOLIO_DATA = {
     const form = root.querySelector(".user-form");
     const roundRows = root.querySelector(".round-rows");
 
+    // Lock the date picker to THIS year only — the surrounding year tab
+    // already picks the season context, so making the user pick the year
+    // again in the calendar is redundant (and easy to get wrong, e.g.
+    // adding a 2024 entry under the 2025 tab). Single source of truth
+    // for "which year" = the active .year-btn, not the date input.
+    const dateInput = form.querySelector('input[type="date"]');
+    if (dateInput) {
+      dateInput.min = `${year}-01-01`;
+      dateInput.max = `${year}-12-31`;
+    }
+
     const showForm = () => { form.hidden = false; };
     const hideForm = () => { form.hidden = true; form.reset(); roundRows.innerHTML = ""; addRound(); };
 
@@ -4487,29 +4498,25 @@ const PORTFOLIO_DATA = {
       window.UpcomingTournaments.init();
     }
 
-    // Pin every <input type="date"> to the active SEASONS range. Static
-    // min/max in the markup is a sensible fallback for first paint, but
-    // re-asserting here means UserScores.SEASONS is the SINGLE source of
-    // truth — extend that array and both pickers auto-extend with zero
-    // other edits. Runs AFTER UserScores.init so every dynamically-built
-    // History form already exists in the DOM.
-    clampDateInputsToSeasons();
+    // Pin the Upcoming form's date picker to the active SEASONS range.
+    // (The Season History forms are clamped to their specific year inside
+    // wireSeason() — see comment there. Two scopes, two clamp helpers,
+    // single responsibility each.)
+    clampUpcomingDateToSeasons();
   });
 
   // Helper kept at module scope so the boot block above stays readable.
-  // Pure DOM tweak — no side effects beyond setting two attributes on
-  // existing inputs, so it's safe to re-run if a form gets rebuilt.
-  function clampDateInputsToSeasons() {
+  // Targets ONLY the Upcoming form's date input — the History forms own
+  // their own per-year clamp, so widening them here would defeat the
+  // "year tab is the source of truth" rule. Pure DOM tweak, idempotent.
+  function clampUpcomingDateToSeasons() {
+    const input = document.querySelector('#upcoming-form input[type="date"]');
+    if (!input) return;
     const seasons = (window.UserScores && window.UserScores.SEASONS) || [];
-    if (!seasons.length) return;
     const years = seasons.map(Number).filter((n) => Number.isFinite(n));
     if (!years.length) return;
-    const min = `${Math.min(...years)}-01-01`;
-    const max = `${Math.max(...years)}-12-31`;
-    document.querySelectorAll('input[type="date"]').forEach((input) => {
-      input.min = min;
-      input.max = max;
-    });
+    input.min = `${Math.min(...years)}-01-01`;
+    input.max = `${Math.max(...years)}-12-31`;
   }
 })();
 
