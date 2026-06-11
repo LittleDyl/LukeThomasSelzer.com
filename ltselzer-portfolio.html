@@ -1039,6 +1039,47 @@ label:has(> input[type="date"]) {
 input[type="date"]:invalid::-webkit-datetime-edit { color: var(--muted); }
 input[type="date"]:focus::-webkit-datetime-edit  { color: var(--charcoal); }
 
+/* ---------- Month + Day select pair (Season History add form) ----------
+   The History form drops year input entirely (the active .year-btn tab
+   IS the year context). Two side-by-side native <select>s are the
+   simplest possible UI that fully addresses "no year selection" — no
+   custom calendar widget, no JS picker lib, just dependent dropdowns. */
+.date-md {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.25rem;
+}
+.date-md-select {
+  flex: 1;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid rgba(31, 77, 43, 0.2);
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 0.95rem;
+  color: var(--charcoal);
+  background: #fff;
+  cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
+}
+.date-md-select:hover:not(:disabled) {
+  border-color: var(--green);
+  background-color: #f5fbf6;
+}
+.date-md-select:focus {
+  outline: none;
+  border-color: var(--green);
+  box-shadow: 0 0 0 3px rgba(63, 166, 103, 0.18);
+  background-color: #fff;
+}
+.date-md-select:disabled {
+  background: #f5f5f5;
+  color: var(--muted);
+  cursor: not-allowed;
+}
+/* Month is wider than Day — calibrate so "September" fits without
+   crowding the day box. flex-grow gives Month ~2x the space. */
+.date-md-select[name="month"] { flex: 2; }
+
 .rounds-fieldset {
   border: 1px solid rgba(31, 77, 43, 0.15);
   border-radius: 8px;
@@ -2499,15 +2540,33 @@ const PORTFOLIO_DATA = {
           </label>
           <label>
             <span>Date *</span>
-            <!-- Native date picker. Browsers feed FormData an ISO
-                 YYYY-MM-DD string which collectFormData() normalizes
-                 back to the M/D/YYYY convention used by every other
-                 entry in the blob (so the rendered date stays uniform
-                 across scraped + manual + graduated tournaments).
-                 min/max scope the year scroller to the active seasons —
-                 clampDateInputsToSeasons() reasserts these at boot from
-                 UserScores.SEASONS so this stays in sync automatically. -->
-            <input type="date" name="date" required min="2024-01-01" max="2026-12-31" />
+            <!-- Month + Day selects only. The YEAR is owned by the
+                 active .year-btn tab — surfacing a year input here would
+                 (a) duplicate state and (b) let the user pick a year
+                 that doesn't match the tab they're under. The day list
+                 is repopulated whenever month changes (and tracks leap
+                 years from the tab's year). collectFormData() assembles
+                 M/D/YYYY from these two values + the tab's year. -->
+            <div class="date-md">
+              <select name="month" class="date-md-select" required aria-label="Month">
+                <option value="" disabled selected>Month</option>
+                <option value="1">January</option>
+                <option value="2">February</option>
+                <option value="3">March</option>
+                <option value="4">April</option>
+                <option value="5">May</option>
+                <option value="6">June</option>
+                <option value="7">July</option>
+                <option value="8">August</option>
+                <option value="9">September</option>
+                <option value="10">October</option>
+                <option value="11">November</option>
+                <option value="12">December</option>
+              </select>
+              <select name="day" class="date-md-select" required aria-label="Day" disabled>
+                <option value="" disabled selected>Day</option>
+              </select>
+            </div>
           </label>
         </div>
         <div class="form-row">
@@ -2561,15 +2620,15 @@ const PORTFOLIO_DATA = {
     const form = root.querySelector(".user-form");
     const roundRows = root.querySelector(".round-rows");
 
-    // Lock the date picker to THIS year only — the surrounding year tab
-    // already picks the season context, so making the user pick the year
-    // again in the calendar is redundant (and easy to get wrong, e.g.
-    // adding a 2024 entry under the 2025 tab). Single source of truth
-    // for "which year" = the active .year-btn, not the date input.
-    const dateInput = form.querySelector('input[type="date"]');
-    if (dateInput) {
-      dateInput.min = `${year}-01-01`;
-      dateInput.max = `${year}-12-31`;
+    // Month → Day dependent dropdown. Day count is computed from the
+    // selected month + the tab's year (so Feb 29 only appears in leap
+    // years). Repopulating on every month change is cheap and keeps the
+    // day options always-valid by construction (single source of truth =
+    // the current month/year, no stale invalid options ever).
+    const monthSelect = form.querySelector('select[name="month"]');
+    const daySelect   = form.querySelector('select[name="day"]');
+    if (monthSelect && daySelect) {
+      monthSelect.addEventListener("change", () => populateDayOptions(daySelect, +monthSelect.value, +year));
     }
 
     const showForm = () => { form.hidden = false; };
@@ -2600,7 +2659,7 @@ const PORTFOLIO_DATA = {
     const submitBtn = form.querySelector('button[type="submit"]');
     form.addEventListener("submit", async (e) => {
       e.preventDefault();
-      const tournament = collectFormData(form);
+      const tournament = collectFormData(form, year);
       if (!tournament.name || !tournament.date) return;
 
       submitBtn.disabled    = true;
@@ -2619,18 +2678,51 @@ const PORTFOLIO_DATA = {
     });
   }
 
-  // Native <input type="date"> emits ISO YYYY-MM-DD. Every other date
-  // in the blob (scraped + graduated) is M/D/YYYY, so we normalize on
-  // the way out — single date convention in storage = single rendering
-  // path in the cards (no per-entry format detection).
-  function normalizeIsoToUs(raw) {
-    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec((raw || "").trim());
-    if (!m) return (raw || "").trim();
-    const [, y, mo, d] = m;
-    return `${parseInt(mo, 10)}/${parseInt(d, 10)}/${y}`;
+  // Gregorian leap-year rule. Used by populateDayOptions to size Feb.
+  function isLeapYear(y) {
+    return (y % 4 === 0 && y % 100 !== 0) || (y % 400 === 0);
   }
 
-  function collectFormData(form) {
+  // Days in each month, 1-indexed [_, Jan..Dec]. Feb swaps for leap years.
+  function daysInMonth(month, year) {
+    const base = [0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+    if (month === 2 && isLeapYear(year)) return 29;
+    return base[month] || 0;
+  }
+
+  // Repopulate the Day <select> with 1..N options for the given month.
+  // Called on month change. Preserves the current selection if it's
+  // still in range (e.g. Feb 28 → Mar still shows Mar 28) — saves the
+  // user from re-picking when they cycle through months.
+  function populateDayOptions(daySelect, month, year) {
+    if (!month) {
+      daySelect.innerHTML = `<option value="" disabled selected>Day</option>`;
+      daySelect.disabled  = true;
+      return;
+    }
+    const prev = daySelect.value;
+    const max  = daysInMonth(month, year);
+    const opts = [`<option value="" disabled${prev ? "" : " selected"}>Day</option>`];
+    for (let d = 1; d <= max; d++) {
+      const sel = (prev && +prev === d) ? " selected" : "";
+      opts.push(`<option value="${d}"${sel}>${d}</option>`);
+    }
+    daySelect.innerHTML = opts.join("");
+    daySelect.disabled  = false;
+  }
+
+  // Assemble M/D/YYYY from the form's month + day selects + the active
+  // year tab. Returns "" if either is missing — the form's `required`
+  // attribute on the selects gates submit, so we should never get an
+  // empty here in practice, but be defensive.
+  function collectDate(form, year) {
+    const month = (form.querySelector('select[name="month"]') || {}).value;
+    const day   = (form.querySelector('select[name="day"]')   || {}).value;
+    if (!month || !day) return "";
+    return `${+month}/${+day}/${year}`;
+  }
+
+  function collectFormData(form, year) {
     const data = new FormData(form);
     const rounds = [];
     const rows = form.querySelectorAll(".round-row");
@@ -2642,7 +2734,7 @@ const PORTFOLIO_DATA = {
     });
 
     return {
-      date:     normalizeIsoToUs(data.get("date")),
+      date:     collectDate(form, year),
       name:     (data.get("name")     || "").trim(),
       division: (data.get("division") || "").trim(),
       place:    (data.get("place")    || "").trim(),
