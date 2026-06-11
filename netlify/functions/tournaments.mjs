@@ -16,6 +16,7 @@
  */
 import { getStore } from "@netlify/blobs";
 import { createHash } from "node:crypto";
+import { migratePastUpcoming } from "./_lib/migrate-upcoming.mjs";
 
 const STORE_NAME = "portfolio";
 const BLOB_KEY   = "tournaments";
@@ -87,7 +88,12 @@ export default async function handler(req) {
   const url   = new URL(req.url);
 
   // ---- GET: public read ----
+  // Run the upcoming→played migration before reading. Means History
+  // always shows graduated entries even when the visitor hasn't opened
+  // the Upcoming tab yet (and vice-versa). Idempotent — cheap no-op
+  // when there's nothing past-due.
   if (req.method === "GET") {
+    await migratePastUpcoming(store);
     const data = await readAll(store);
     return json(200, { tournaments: data });
   }

@@ -687,6 +687,104 @@ h3 {
 }
 .swing-card-delete:hover { background: #b3261e; color: #fff; }
 
+/* ---------- Upcoming Tournaments ----------
+   Card grid + add form. Visually echoes .swing-* so the two owner-curated
+   sections feel like siblings without literally inheriting their classes
+   (different markup, different concerns — SRP wins over shared classnames). */
+.upcoming { margin-top: 1rem; }
+.upcoming-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1.1rem;
+  margin-top: 1rem;
+}
+.upcoming-empty {
+  grid-column: 1 / -1;
+  color: #777;
+  font-style: italic;
+  text-align: center;
+  padding: 1.2rem 0;
+}
+.upcoming-card {
+  background: #fff;
+  border: 1px solid rgba(31, 77, 43, 0.15);
+  border-left: 4px solid var(--green-deep, #1f4d2b);
+  border-radius: var(--radius);
+  padding: 0.9rem 1rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+  position: relative;
+}
+.upcoming-card.is-soon { border-left-color: #c98a1a; }
+.upcoming-card-date {
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--green-deep, #1f4d2b);
+}
+.upcoming-card-title {
+  font-weight: 700;
+  font-size: 1.02rem;
+  color: #1c1c1c;
+  line-height: 1.3;
+}
+.upcoming-card-meta {
+  font-size: 0.85rem;
+  color: #555;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem 0.8rem;
+}
+.upcoming-card-meta span::before { content: "• "; color: #bbb; margin-right: 0.15rem; }
+.upcoming-card-meta span:first-child::before { content: ""; margin: 0; }
+.upcoming-card-notes {
+  font-size: 0.88rem;
+  color: #444;
+  white-space: pre-wrap;
+}
+.upcoming-card-link {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--green-deep, #1f4d2b);
+  text-decoration: none;
+  align-self: flex-start;
+}
+.upcoming-card-link:hover { text-decoration: underline; }
+.upcoming-card-delete {
+  align-self: flex-end;
+  margin-top: 0.3rem;
+  background: transparent;
+  border: 1px solid rgba(179, 38, 30, 0.4);
+  color: #b3261e;
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 0.3rem 0.65rem;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.upcoming-card-delete:hover { background: #b3261e; color: #fff; }
+
+/* Owner-only add form — same spacing/divider treatment as swing controls. */
+.upcoming-owner-controls {
+  margin-top: 2.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px dashed rgba(31, 77, 43, 0.25);
+}
+.upcoming-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  margin-top: 0.5rem;
+}
+.upcoming-form textarea {
+  resize: vertical;
+  font-family: inherit;
+}
+
 /* Tiny "or" divider between the URL input and the file input.
    Pure decoration — flexbox + pseudo-elements draw the hairlines so we
    don't need extra DOM nodes. */
@@ -1299,6 +1397,7 @@ body.is-owner .owner-only { display: revert !important; }
       <button class="tab active" role="tab" data-tab="personal" aria-selected="true">Personal Bio</button>
       <button class="tab" role="tab" data-tab="golf" aria-selected="false">Golf Bio</button>
       <button class="tab" role="tab" data-tab="history" aria-selected="false">Season History</button>
+      <button class="tab" role="tab" data-tab="upcoming" aria-selected="false">Upcoming Tournaments</button>
       <button class="tab" role="tab" data-tab="swing" aria-selected="false">Swing Video</button>
     </nav>
 
@@ -1422,6 +1521,73 @@ body.is-owner .owner-only { display: revert !important; }
         <div class="user-controls owner-only" data-year="2026"></div>
         <div class="season-summary" id="summary-2026"></div>
         <div class="tournaments" id="tournaments-2026"></div>
+      </div>
+    </section>
+
+    <!-- ===== Upcoming Tournaments =====
+         Public list of tournaments LT has on the schedule. Visitors get a
+         clean read-only view; the owner sees an add form + per-card delete
+         buttons (gated by the existing .owner-only / OwnerGate mechanism).
+         Wired by window.UpcomingTournaments — public GET, owner POST/DELETE.
+         Mirrors SwingVideos for consistency: same auth headers, same
+         delegated click handler, same render-from-cache pattern. -->
+    <section class="tab-panel" id="upcoming" role="tabpanel">
+      <h2>Upcoming Tournaments</h2>
+      <p class="muted">What's on the schedule — soonest first.</p>
+
+      <div class="upcoming">
+        <div id="upcoming-grid" class="upcoming-grid">
+          <p class="upcoming-empty">Loading upcoming tournaments…</p>
+        </div>
+
+        <!-- Owner-only Add controls live below the list, same convention
+             as Swing Videos: visitors see content first, management UI
+             below the fold for the owner. -->
+        <div class="owner-only upcoming-owner-controls">
+          <h3 class="swing-section-heading">Add an Upcoming Tournament</h3>
+        </div>
+
+        <form id="upcoming-form" class="upcoming-form owner-only" autocomplete="off">
+          <label class="swing-field">
+            <span>Tournament name *</span>
+            <input type="text" name="name" maxlength="120" required
+                   placeholder="e.g. AJGA Junior All-Star at Sea Island">
+          </label>
+
+          <label class="swing-field">
+            <span>Date</span>
+            <input type="date" name="date">
+          </label>
+
+          <label class="swing-field">
+            <span>Location / Course</span>
+            <input type="text" name="location" maxlength="160"
+                   placeholder="e.g. Sea Island Golf Club, GA">
+          </label>
+
+          <label class="swing-field">
+            <span>Division (optional)</span>
+            <input type="text" name="division" maxlength="80"
+                   placeholder="e.g. Boys 16-18">
+          </label>
+
+          <label class="swing-field">
+            <span>Registration / info link (optional)</span>
+            <input type="url" name="registrationUrl" maxlength="500"
+                   placeholder="https://…">
+          </label>
+
+          <label class="swing-field">
+            <span>Notes (optional)</span>
+            <textarea name="notes" rows="2" maxlength="500"
+                      placeholder="Anything worth mentioning — travel, qualifier status, etc."></textarea>
+          </label>
+
+          <div class="swing-upload-actions">
+            <button type="submit" class="swing-upload-btn">📅 Add Tournament</button>
+            <span class="swing-upload-status" id="upcoming-status" role="status" aria-live="polite"></span>
+          </div>
+        </form>
       </div>
     </section>
 
@@ -3487,6 +3653,212 @@ const PORTFOLIO_DATA = {
   })();
 
 
+  // ---------- UpcomingTournaments: owner-curated public schedule ----------
+  // Same shape as SwingVideos on purpose: public GET via /api/upcoming-tournaments,
+  // owner-only POST/DELETE using the shared X-Owner-Password header convention.
+  // Single source of truth = the in-memory `cache` array; render() is the only
+  // function that touches the DOM grid, so every CRUD path stays a one-liner.
+  window.UpcomingTournaments = (function () {
+    const API    = "/api/upcoming-tournaments";
+    const PW_KEY = "ltselzer_owner_pw"; // ⚠️ must match OwnerGate / UserScores / SwingVideos
+
+    let cache = [];
+
+    function ownerHeaders() {
+      return { "X-Owner-Password": sessionStorage.getItem(PW_KEY) || "" };
+    }
+
+    // Belt-and-suspenders escaping — server already sanitizes, but every
+    // user-submitted string flows through this before innerHTML.
+    function esc(s) {
+      return String(s ?? "")
+        .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+    }
+
+    // Format an ISO yyyy-mm-dd as a human-friendly label. Falls back to
+    // the raw string so partial/odd inputs still render something useful.
+    function formatDate(raw) {
+      if (!raw) return "Date TBD";
+      const ts = Date.parse(raw);
+      if (Number.isNaN(ts)) return raw;
+      const d = new Date(ts);
+      return d.toLocaleDateString(undefined, {
+        weekday: "short", year: "numeric", month: "short", day: "numeric",
+      });
+    }
+
+    // "Soon" = within 14 days. Used purely to switch the card's accent
+    // color so the most-imminent events visually pop. Anything past or
+    // far-future just gets the default green stripe.
+    function isSoon(raw) {
+      const ts = Date.parse(raw || "");
+      if (Number.isNaN(ts)) return false;
+      const days = (ts - Date.now()) / (1000 * 60 * 60 * 24);
+      return days >= 0 && days <= 14;
+    }
+
+    function cardHtml(t) {
+      const metaParts = [t.location, t.division].filter(Boolean).map(esc);
+      const metaHtml  = metaParts.length
+        ? `<div class="upcoming-card-meta">${metaParts.map((m) => `<span>${m}</span>`).join("")}</div>`
+        : "";
+      const notesHtml = t.notes ? `<div class="upcoming-card-notes">${esc(t.notes)}</div>` : "";
+      const linkHtml  = t.registrationUrl
+        ? `<a class="upcoming-card-link" href="${esc(t.registrationUrl)}"
+             target="_blank" rel="noopener noreferrer">🔗 Tournament info →</a>`
+        : "";
+      const soonClass = isSoon(t.date) ? " is-soon" : "";
+
+      return `
+        <article class="upcoming-card${soonClass}" data-id="${esc(t._id)}">
+          <div class="upcoming-card-date">${esc(formatDate(t.date))}</div>
+          <div class="upcoming-card-title">${esc(t.name)}</div>
+          ${metaHtml}
+          ${notesHtml}
+          ${linkHtml}
+          <button type="button" class="upcoming-card-delete owner-only"
+                  data-upcoming-delete="${esc(t._id)}">🗑️ Remove</button>
+        </article>`;
+    }
+
+    function render() {
+      const grid = document.getElementById("upcoming-grid");
+      if (!grid) return;
+      if (cache.length === 0) {
+        grid.innerHTML = `<p class="upcoming-empty">No upcoming tournaments on the schedule yet.</p>`;
+        return;
+      }
+      grid.innerHTML = cache.map(cardHtml).join("");
+    }
+
+    async function fetchAll() {
+      try {
+        const res = await fetch(API, { cache: "no-store" });
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        const body = await res.json();
+        cache = Array.isArray(body.upcoming) ? body.upcoming : [];
+      } catch (err) {
+        console.warn("UpcomingTournaments: couldn't load list:", err);
+        cache = [];
+      }
+      render();
+    }
+
+    // Re-sort client-side after every mutation so the soonest entry stays
+    // on top without waiting for a server round-trip. Matches the server's
+    // sortByDateAsc() — same rule (invalid/blank dates sink to the bottom).
+    function resortCache() {
+      cache.sort((a, b) => {
+        const ta = Date.parse(a.date || "") || Number.POSITIVE_INFINITY;
+        const tb = Date.parse(b.date || "") || Number.POSITIVE_INFINITY;
+        return ta - tb;
+      });
+    }
+
+    async function add(payload) {
+      const res = await fetch(API, {
+        method:  "POST",
+        headers: { "Content-Type": "application/json", ...ownerHeaders() },
+        body:    JSON.stringify(payload),
+      });
+      if (res.status === 401) {
+        if (window.OwnerGate) window.OwnerGate.promptForOwner();
+        throw new Error("Session expired — please re-enter the password.");
+      }
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.error || ("Add failed (HTTP " + res.status + ")"));
+      cache.push(body.tournament);
+      resortCache();
+      render();
+    }
+
+    async function remove(id) {
+      const res = await fetch(`${API}?id=${encodeURIComponent(id)}`, {
+        method: "DELETE",
+        headers: ownerHeaders(),
+      });
+      if (res.status === 401) {
+        if (window.OwnerGate) window.OwnerGate.promptForOwner();
+        throw new Error("Session expired — please re-enter the password.");
+      }
+      if (!res.ok && res.status !== 404) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || ("Delete failed (HTTP " + res.status + ")"));
+      }
+      cache = cache.filter((t) => t._id !== id);
+      render();
+    }
+
+    function setStatus(text, kind) {
+      const el = document.getElementById("upcoming-status");
+      if (!el) return;
+      el.textContent = text;
+      el.classList.remove("is-error", "is-success");
+      if (kind) el.classList.add("is-" + kind);
+    }
+
+    // One delegated click handler for the whole section — cards re-render
+    // but the .upcoming container is stable, so no per-card wiring needed.
+    function wireContainer() {
+      const root = document.querySelector(".upcoming");
+      if (!root) return;
+      root.addEventListener("click", async (e) => {
+        const delBtn = e.target.closest("[data-upcoming-delete]");
+        if (!delBtn) return;
+        const id = delBtn.dataset.upcomingDelete;
+        if (!id) return;
+        if (!confirm("Remove this upcoming tournament?")) return;
+        try { await remove(id); }
+        catch (err) { alert("Couldn't remove:\n" + err.message); }
+      });
+    }
+
+    function wireForm() {
+      const form = document.getElementById("upcoming-form");
+      if (!form) return;
+      const submitBtn = form.querySelector('button[type="submit"]');
+
+      form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const data = new FormData(form);
+        const payload = {
+          name:            (data.get("name")            || "").toString().trim(),
+          date:            (data.get("date")            || "").toString().trim(),
+          location:        (data.get("location")        || "").toString().trim(),
+          division:        (data.get("division")        || "").toString().trim(),
+          registrationUrl: (data.get("registrationUrl") || "").toString().trim(),
+          notes:           (data.get("notes")           || "").toString().trim(),
+        };
+        if (!payload.name) { setStatus("Tournament name is required.", "error"); return; }
+
+        const originalLabel = submitBtn.textContent;
+        submitBtn.disabled  = true;
+        submitBtn.textContent = "Adding…";
+        setStatus("Adding…", null);
+        try {
+          await add(payload);
+          form.reset();
+          setStatus("Added!", "success");
+        } catch (err) {
+          setStatus(err.message, "error");
+        } finally {
+          submitBtn.disabled    = false;
+          submitBtn.textContent = originalLabel;
+        }
+      });
+    }
+
+    async function init() {
+      wireContainer();
+      wireForm();
+      await fetchAll();
+    }
+
+    return { init };
+  })();
+
+
   // ---------- ThemeEditor: owner-customizable site colors ----------
   // Loads a saved theme from /api/theme on init and applies it via CSS
   // custom properties on the <html> element. Owners can open a modal
@@ -3979,6 +4351,12 @@ const PORTFOLIO_DATA = {
     // controls only appear once OwnerGate flips body.is-owner.
     if (window.SwingVideos) {
       window.SwingVideos.init();
+    }
+
+    // Upcoming tournaments — same fire-and-forget pattern. Public read
+    // for visitors, owner-only add/delete UI flips on with body.is-owner.
+    if (window.UpcomingTournaments) {
+      window.UpcomingTournaments.init();
     }
   });
 })();
