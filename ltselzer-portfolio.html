@@ -2631,8 +2631,22 @@ const PORTFOLIO_DATA = {
       monthSelect.addEventListener("change", () => populateDayOptions(daySelect, +monthSelect.value, +year));
     }
 
-    const showForm = () => { form.hidden = false; };
-    const hideForm = () => { form.hidden = true; form.reset(); roundRows.innerHTML = ""; addRound(); };
+    // Hide the "+ Add Tournament" toolbar while the form is open so it
+    // can't be re-clicked mid-edit (and visually keeps the focus on the
+    // form). Both choke points (cancel button + post-save) go through
+    // hideForm(), so restoring the toolbar in one place covers both.
+    const toolbar = root.querySelector(".user-toolbar");
+    const showForm = () => {
+      form.hidden    = false;
+      if (toolbar) toolbar.hidden = true;
+    };
+    const hideForm = () => {
+      form.hidden    = true;
+      if (toolbar) toolbar.hidden = false;
+      form.reset();
+      roundRows.innerHTML = "";
+      addRound();
+    };
 
     function addRound() {
       const next = roundRows.children.length + 1;
