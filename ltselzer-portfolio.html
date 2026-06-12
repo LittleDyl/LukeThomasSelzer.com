@@ -141,6 +141,41 @@ a { color: var(--green-deep); }
   color: #555;
 }
 
+/* Visual "or" divider between the two photo-source paths (paste a URL
+   vs. upload a file). Centered uppercase text flanked by two flex-grown
+   hairlines — pure CSS, no extra DOM. Communicates either/or at a glance
+   so parents don't think the upload is a required step after the URL. */
+.personal-photo-or {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  margin: 0.7rem 0 0.5rem;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  font-weight: 700;
+  color: var(--muted);
+}
+.personal-photo-or::before,
+.personal-photo-or::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: rgba(31, 77, 43, 0.18);
+}
+
+/* Mini-label above the file picker — mirrors the visual weight of the
+   parent "Photo URL" label so the two options read as equal siblings,
+   not parent/child. Resets the .field span uppercase/letter-spacing
+   cascade for the same reason .personal-photo-upload does. */
+.personal-photo-upload-label {
+  text-transform: none;
+  letter-spacing: normal;
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: var(--charcoal);
+}
+
 .eyebrow {
   text-transform: uppercase;
   letter-spacing: 0.25em;
@@ -1558,6 +1593,14 @@ body.is-owner .owner-only { display: revert !important; }
           <label class="field full">
             <span>Photo URL</span>
             <input type="url" name="photo" id="personal-photo-url" placeholder="https://..." />
+
+            <!-- Two ways to set the bio photo: paste a URL above, OR
+                 upload a file below. The "or" divider visually communicates
+                 either/or so parents don't think the upload is a required
+                 next step after the URL. Decorative — aria-hidden keeps it
+                 out of the accessibility tree. -->
+            <div class="personal-photo-or" aria-hidden="true">or</div>
+
             <!-- Lets parents skip the "host an image somewhere first" step.
                  Picking a file uploads it to the Supabase `photos` bucket
                  and auto-fills the URL above. The Save button still runs
@@ -1565,6 +1608,7 @@ body.is-owner .owner-only { display: revert !important; }
                  not a separate persistence path. (SRP: this label only
                  handles the upload, not the save.) -->
             <span class="personal-photo-upload">
+              <span class="personal-photo-upload-label">Upload from your device</span>
               <input type="file" id="personal-photo-file" accept="image/*">
               <span class="swing-upload-status" id="personal-photo-status"
                     role="status" aria-live="polite"></span>
