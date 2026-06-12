@@ -1667,10 +1667,35 @@ body.is-owner .owner-only { display: revert !important; }
 
           <label class="swing-field">
             <span>Date</span>
-            <!-- min/max scope the year scroller to the active seasons.
-                 Get overwritten at boot by clampDateInputsToSeasons()
-                 using UserScores.SEASONS as the single source of truth. -->
-            <input type="date" name="date" min="2024-01-01" max="2026-12-31">
+            <!-- Three-select date picker matching the Season History add
+                 form. Unlike that one, Upcoming has no year-tab context,
+                 so we surface a Year select here populated from
+                 UserScores.SEASONS. populateUpcomingDateSelects() wires
+                 the month/year → day dependency at boot (leap-year math
+                 delegated to UserScores.daysInMonth — single source). -->
+            <div class="date-md">
+              <select name="month" class="date-md-select" aria-label="Month">
+                <option value="" disabled selected>Month</option>
+                <option value="1">January</option>
+                <option value="2">February</option>
+                <option value="3">March</option>
+                <option value="4">April</option>
+                <option value="5">May</option>
+                <option value="6">June</option>
+                <option value="7">July</option>
+                <option value="8">August</option>
+                <option value="9">September</option>
+                <option value="10">October</option>
+                <option value="11">November</option>
+                <option value="12">December</option>
+              </select>
+              <select name="day" class="date-md-select" aria-label="Day" disabled>
+                <option value="" disabled selected>Day</option>
+              </select>
+              <select name="year" class="date-md-select" aria-label="Year">
+                <option value="" disabled selected>Year</option>
+              </select>
+            </div>
           </label>
 
           <label class="swing-field">
@@ -2771,6 +2796,9 @@ const PORTFOLIO_DATA = {
   window.UserScores = {
     SEASONS,
     loadSeason,
+    // Exposed so the Upcoming form's three-select date picker can reuse
+    // the same leap-year-aware day count — one rule, two consumers.
+    daysInMonth,
     async deleteTournament(year, id) {
       try { await deleteTournament(year, id); }
       catch (err) { alert("Couldn't delete:\n" + err.message); throw err; }
@@ -4065,6 +4093,18 @@ const PORTFOLIO_DATA = {
       });
     }
 
+    // Assemble ISO yyyy-mm-dd from the upcoming form's three selects.
+    // Returns "" if any piece is blank — matches the prior <input type=
+    // "date"> behavior where an unfilled date meant "TBD". Padding keeps
+    // single-digit months/days ISO-compliant so Date.parse is happy.
+    function buildUpcomingDate(form) {
+      const m = +(form.querySelector('select[name="month"]') || {}).value;
+      const d = +(form.querySelector('select[name="day"]')   || {}).value;
+      const y = +(form.querySelector('select[name="year"]')  || {}).value;
+      if (!m || !d || !y) return "";
+      return `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+    }
+
     function wireForm() {
       const form = document.getElementById("upcoming-form");
       if (!form) return;
@@ -4075,7 +4115,11 @@ const PORTFOLIO_DATA = {
         const data = new FormData(form);
         const payload = {
           name:            (data.get("name")            || "").toString().trim(),
-          date:            (data.get("date")            || "").toString().trim(),
+          // Date is assembled from the Month/Day/Year selects into ISO
+          // yyyy-mm-dd — that's the same shape <input type="date"> used
+          // to produce, so the server, sort, and formatDate code stay
+          // blissfully unaware of the UI swap. Empty string = Date TBD.
+          date:            buildUpcomingDate(form),
           location:        (data.get("location")        || "").toString().trim(),
           division:        (data.get("division")        || "").toString().trim(),
           registrationUrl: (data.get("registrationUrl") || "").toString().trim(),
@@ -4610,25 +4654,63 @@ const PORTFOLIO_DATA = {
       window.UpcomingTournaments.init();
     }
 
-    // Pin the Upcoming form's date picker to the active SEASONS range.
-    // (The Season History forms are clamped to their specific year inside
-    // wireSeason() — see comment there. Two scopes, two clamp helpers,
-    // single responsibility each.)
-    clampUpcomingDateToSeasons();
+    // Populate the Upcoming form's Month/Day/Year selects and wire the
+    // month/year → day dependency. Year options come from
+    // UserScores.SEASONS (single source of truth). The Season History
+    // forms own their own per-year picker inside wireSeason() — two
+    // scopes, two helpers, single responsibility each.
+    populateUpcomingDateSelects();
   });
 
   // Helper kept at module scope so the boot block above stays readable.
-  // Targets ONLY the Upcoming form's date input — the History forms own
-  // their own per-year clamp, so widening them here would defeat the
-  // "year tab is the source of truth" rule. Pure DOM tweak, idempotent.
-  function clampUpcomingDateToSeasons() {
-    const input = document.querySelector('#upcoming-form input[type="date"]');
-    if (!input) return;
+  // Idempotent-ish: safe to call once at boot. Day options are rebuilt
+  // every time month or year changes, leaning on UserScores.daysInMonth
+  // so leap-year math lives in exactly one place.
+  function populateUpcomingDateSelects() {
+    const form = document.getElementById("upcoming-form");
+    if (!form) return;
+    const monthSelect = form.querySelector('select[name="month"]');
+    const daySelect   = form.querySelector('select[name="day"]');
+    const yearSelect  = form.querySelector('select[name="year"]');
+    if (!monthSelect || !daySelect || !yearSelect) return;
+
     const seasons = (window.UserScores && window.UserScores.SEASONS) || [];
-    const years = seasons.map(Number).filter((n) => Number.isFinite(n));
-    if (!years.length) return;
-    input.min = `${Math.min(...years)}-01-01`;
-    input.max = `${Math.max(...years)}-12-31`;
+    const years = seasons.map(Number).filter((n) => Number.isFinite(n)).sort((a, b) => a - b);
+    if (years.length) {
+      yearSelect.innerHTML = [
+        '<option value="" disabled selected>Year</option>',
+        ...years.map((y) => `<option value="${y}">${y}</option>`),
+      ].join("");
+    }
+
+    // Rebuild the Day select from month+year. If year isn't picked yet,
+    // fall back to a non-leap year for sizing — the user just can't
+    // land on Feb 29 until they choose a leap year, then re-pick the day.
+    const refreshDays = () => {
+      const month = +monthSelect.value;
+      const year  = +yearSelect.value;
+      if (!month) {
+        daySelect.innerHTML = '<option value="" disabled selected>Day</option>';
+        daySelect.disabled  = true;
+        return;
+      }
+      const daysIn = (window.UserScores && window.UserScores.daysInMonth) || (() => 31);
+      const max  = daysIn(month, year || 2025);
+      const prev = +daySelect.value;
+      const opts = [`<option value="" disabled${prev ? "" : " selected"}>Day</option>`];
+      for (let d = 1; d <= max; d++) {
+        const sel = prev === d ? " selected" : "";
+        opts.push(`<option value="${d}"${sel}>${d}</option>`);
+      }
+      daySelect.innerHTML = opts.join("");
+      daySelect.disabled  = false;
+    };
+
+    monthSelect.addEventListener("change", refreshDays);
+    yearSelect.addEventListener("change", refreshDays);
+    // form.reset() runs AFTER this event fires, so defer the sync a tick
+    // to catch the post-reset "" values and re-disable the Day select.
+    form.addEventListener("reset", () => setTimeout(refreshDays, 0));
   }
 })();
 
