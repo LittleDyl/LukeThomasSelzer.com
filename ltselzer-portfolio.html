@@ -283,6 +283,20 @@ h3 {
   }
 }
 
+/* Odd-item-count fix: when the bio has an odd number of populated
+   fields (e.g. the default 5: Name, Hometown, Age, Class Year,
+   Currently Attending), the last item lands alone in row N with an
+   empty cell next to it — visually awkward. Letting that orphan span
+   both columns turns the gap into intentional emphasis instead of a
+   ragged edge. Scales automatically: works for any odd count, no-op
+   when the count is even. Skipped on mobile where the grid is 1-col
+   anyway (nothing to span). */
+@media (min-width: 541px) {
+  #personal-list li:last-child:nth-child(odd) {
+    grid-column: 1 / -1;
+  }
+}
+
 .profile-list li {
   padding: 0.7rem 0.9rem;
   background: var(--ivory);
