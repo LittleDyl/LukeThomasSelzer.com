@@ -1644,6 +1644,28 @@ body.is-owner .visitor-only { display: none !important; }
             <span>Currently Attending</span>
             <input type="text" name="currently_attending" placeholder="e.g. school, academy, program — whatever you want" />
           </label>
+          <!-- Physical + contact details. Plain text inputs so the owner
+               can format however they like ("6'3\"", "75 in", whatever).
+               Saved through the same handleSubmit() as every other field —
+               no new code paths, no new validation surface. -->
+          <label class="field">
+            <span>Height</span>
+            <input type="text" name="height" placeholder="e.g. 5'6&quot; or 168 cm" />
+          </label>
+          <label class="field">
+            <span>Weight</span>
+            <input type="text" name="weight" placeholder="e.g. 130 lbs or 59 kg" />
+          </label>
+          <label class="field">
+            <span>Phone</span>
+            <input type="tel" name="phone" placeholder="e.g. (704) 555-0123"
+                   autocomplete="tel" />
+          </label>
+          <label class="field full">
+            <span>Home Address</span>
+            <input type="text" name="home_address" placeholder="e.g. 123 Greenway Dr, Charlotte, NC 28202"
+                   autocomplete="street-address" />
+          </label>
           <label class="field full">
             <!-- Two ways to set the bio photo: upload a file (top) OR
                  paste a URL (bottom). Both label <span>s sit at the top
@@ -3048,10 +3070,19 @@ const PORTFOLIO_DATA = {
   function renderPersonal(data) {
     const list = $("#personal-list");
     list.innerHTML = "";
+    // Display order is deliberate: identity → location → contact → vitals
+    // → academic. Each row self-suppresses when the underlying field is
+    // blank (see the .forEach below) so empty values never produce empty
+    // rows. Single source of truth: the labels here drive the only thing
+    // visitors see.
     const items = [
       ["Name",                data.personal.name],
       ["Hometown",            data.personal.hometown],
+      ["Home Address",        data.personal.home_address],
+      ["Phone",               data.personal.phone],
       ["Age",                 (data.personal.age || "").replace(/^Age:\s*/i, "")],
+      ["Height",              data.personal.height],
+      ["Weight",              data.personal.weight],
       ["Class Year",          data.personal.class_year],
       ["Currently Attending", data.personal.currently_attending],
     ];
@@ -3404,6 +3435,8 @@ const PORTFOLIO_DATA = {
     const FIELDS = [
       "name", "hometown", "class_year", "age", "currently_attending",
       "photo", "bio",
+      // physical + contact — mirror with ALLOWED_FIELDS in personal.mjs
+      "height", "weight", "home_address", "phone",
       ...SOCIAL_PLATFORMS.map((p) => p.key),
     ];
     let originalPersonal = null; // snapshot for "Reset to Defaults"
@@ -4875,25 +4908,31 @@ const PORTFOLIO_DATA = {
         size: 22, style: "bold", color: [31, 77, 43], gap: 4, maxW: textMaxW,
       });
 
-      // Subtitle row: class • hometown • age. Strips the existing
-      // "Age:" prefix the dataset uses so we don't double-print it.
+      // Subtitle row: class • hometown • age • height • weight. Strips
+      // the existing "Age:" prefix the dataset uses so we don't double-
+      // print it. height/weight only appear when set, so an empty field
+      // doesn't leave dangling separators (joinNonEmpty handles that).
       const subtitle = joinNonEmpty(
-        [p.class_year, p.hometown, stripPrefix(p.age, "Age:")],
+        [p.class_year, p.hometown, stripPrefix(p.age, "Age:"), p.height, p.weight],
         "  •  "
       );
       if (nonEmpty(subtitle)) {
         cur.text(subtitle, { size: 10, color: [107, 122, 114], gap: 3, maxW: textMaxW });
       }
 
-      // Socials — render whichever ones the owner filled in.
-      const socialBits = [];
-      if (nonEmpty(p.instagram)) socialBits.push("Instagram: @" + p.instagram.replace(/^@/, ""));
-      if (nonEmpty(p.twitter))   socialBits.push("X: @" + p.twitter.replace(/^@/, ""));
-      if (nonEmpty(p.tiktok))    socialBits.push("TikTok: @" + p.tiktok.replace(/^@/, ""));
-      if (nonEmpty(p.youtube))   socialBits.push("YouTube: @" + p.youtube.replace(/^@/, ""));
-      if (nonEmpty(p.website))   socialBits.push("Web: " + p.website);
-      if (socialBits.length) {
-        cur.text(socialBits.join("  •  "), {
+      // Contact row: phone, address, and socials live on the same
+      // visually-secondary line so the contact block reads as one unit.
+      // Order favors the most-likely-useful contact for a college coach.
+      const contactBits = [];
+      if (nonEmpty(p.phone))        contactBits.push("Phone: " + p.phone);
+      if (nonEmpty(p.home_address)) contactBits.push("Address: " + p.home_address);
+      if (nonEmpty(p.instagram))    contactBits.push("Instagram: @" + p.instagram.replace(/^@/, ""));
+      if (nonEmpty(p.twitter))      contactBits.push("X: @" + p.twitter.replace(/^@/, ""));
+      if (nonEmpty(p.tiktok))       contactBits.push("TikTok: @" + p.tiktok.replace(/^@/, ""));
+      if (nonEmpty(p.youtube))      contactBits.push("YouTube: @" + p.youtube.replace(/^@/, ""));
+      if (nonEmpty(p.website))      contactBits.push("Web: " + p.website);
+      if (contactBits.length) {
+        cur.text(contactBits.join("  •  "), {
           size: 9, color: [107, 122, 114], gap: 4, maxW: textMaxW,
         });
       }

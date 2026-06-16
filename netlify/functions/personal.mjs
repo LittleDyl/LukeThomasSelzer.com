@@ -34,6 +34,10 @@ const BLOB_KEY   = "personal-overrides";
 const ALLOWED_FIELDS = new Set([
   "name", "hometown", "class_year", "age", "currently_attending",
   "photo", "bio",
+  // physical / contact details — surfaced on the Personal Bio tab and
+  // in the visitor resume PDF. Stored as plain strings; the client
+  // decides display formatting.
+  "height", "weight", "home_address", "phone",
   // socials — keep aligned with SOCIAL_PLATFORMS on the client
   "instagram", "twitter", "tiktok", "youtube", "facebook", "linkedin", "website",
 ]);
