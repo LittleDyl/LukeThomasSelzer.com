@@ -5239,19 +5239,6 @@ const PORTFOLIO_DATA = {
       };
     }
 
-    function drawFooter(doc) {
-      const total = doc.getNumberOfPages();
-      for (let i = 1; i <= total; i++) {
-        doc.setPage(i);
-        doc.setFont("helvetica", "italic");
-        doc.setFontSize(8);
-        doc.setTextColor(MUTED[0], MUTED[1], MUTED[2]);
-        const stamp = "Generated " + new Date().toLocaleDateString() +
-                      "  ·  Page " + i + " of " + total;
-        // Center the stamp in the content area (excluding the right navy bar).
-        doc.text(stamp, (PAGE_W - RIGHT_BAR_W) / 2, PAGE_H - 8, { align: "center" });
-      }
-    }
 
     // Wait up to timeoutMs for the jsPDF CDN script to attach window.jspdf.
     function waitForJsPDF(timeoutMs = 5000) {
@@ -5285,7 +5272,6 @@ const PORTFOLIO_DATA = {
       drawFrame(doc);
       drawLeftColumn(doc, data);
       drawRightColumn(doc, data);
-      drawFooter(doc);
 
       const safeName = (data.personal.name || "player")
         .trim().replace(/\s+/g, "_").replace(/[^\w\-]/g, "");
