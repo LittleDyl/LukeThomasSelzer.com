@@ -4991,11 +4991,11 @@ const PORTFOLIO_DATA = {
     // PDF reads like a proper letter-style document. One constant
     // = one source of truth; changing this re-flows the whole page.
     const MARGIN = 72;
-    // Bottom edge gets an extra ~0.4" of footer breathing room on top
+    // Bottom edge gets an extra ~0.55" of footer breathing room on top
     // of the standard margin. Trailing bullets were technically inside
     // the 1" margin but still looked crammed against the page edge —
     // a slightly bigger footer is a normal typographic convention.
-    const BOTTOM_MARGIN = MARGIN + 30;
+    const BOTTOM_MARGIN = MARGIN + 40;
     const MAX_Y = PAGE_H - BOTTOM_MARGIN;
 
     // ---- Color palette ----
@@ -5425,10 +5425,12 @@ const PORTFOLIO_DATA = {
 
     // Per-section item caps. Balanced so all three sections get airtime
     // on a single page; drawSection() still enforces MAX_Y as the hard
-    // safety net, but these caps keep the layout predictable.
-    const MAX_ACHIEVEMENTS = 6;
-    const MAX_UPCOMING     = 5;
-    const MAX_RECENT       = 6;
+    // safety net, but these caps keep the layout predictable. Trimmed
+    // Achievements + Upcoming a touch so Recent Events reliably renders
+    // inside the larger footer zone instead of getting starved out.
+    const MAX_ACHIEVEMENTS = 4;
+    const MAX_UPCOMING     = 4;
+    const MAX_RECENT       = 5;
 
     // Up to N best finishes from each season, formatted "YYYY: Place — Name".
     // Sorted by place ASC (best first) within each season, then concatenated
