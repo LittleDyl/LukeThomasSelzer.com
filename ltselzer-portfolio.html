@@ -13,7 +13,7 @@
   <!-- jsPDF — pure-client PDF generation for the visitor "Download Resume"
        button. Pulled from CDN so we don't have to bundle 250 KB into the
        repo. UMD build exposes window.jspdf.jsPDF. -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js"
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"
           crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 
   <style>
@@ -4968,10 +4968,28 @@ const PORTFOLIO_DATA = {
       }
     }
 
+    // Wait up to `timeoutMs` for the jsPDF CDN script to attach window.jspdf.
+    // Returns true on success, false on timeout. Polls cheaply (every 50 ms)
+    // because the script is normally already loaded by the time the user
+    // clicks — this only matters on the rare slow-network first click.
+    function waitForJsPDF(timeoutMs = 5000) {
+      return new Promise((resolve) => {
+        if (window.jspdf && window.jspdf.jsPDF) return resolve(true);
+        const start = Date.now();
+        const tick = () => {
+          if (window.jspdf && window.jspdf.jsPDF) return resolve(true);
+          if (Date.now() - start > timeoutMs)     return resolve(false);
+          setTimeout(tick, 50);
+        };
+        tick();
+      });
+    }
+
     // ---- Public entry point ----
-    function generate() {
-      if (!window.jspdf || !window.jspdf.jsPDF) {
-        alert("PDF library hasn't loaded yet — check your connection and try again.");
+    async function generate() {
+      const ready = await waitForJsPDF();
+      if (!ready) {
+        alert("PDF library couldn't load — check your connection (or an ad-blocker) and try again.");
         return;
       }
       const { jsPDF } = window.jspdf;
@@ -5000,7 +5018,7 @@ const PORTFOLIO_DATA = {
           // requestAnimationFrame so the button-state change actually
           // paints before the (synchronous) PDF build hogs the main thread.
           await new Promise(r => requestAnimationFrame(r));
-          generate();
+          await generate();
         } catch (err) {
           console.error("ResumeGenerator: failed:", err);
           alert("Sorry — couldn't generate the PDF. See the console for details.");
