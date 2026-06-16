@@ -27,3 +27,6 @@ desktop.ini
 .env
 .env.*
 !.env.example
+
+# Throwaway scrape / debug helpers — never commit
+_scratch_*

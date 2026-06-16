@@ -4986,6 +4986,12 @@ const PORTFOLIO_DATA = {
   const ResumeGenerator = (() => {
     // ---- Page geometry (US Letter portrait, units = points) ----
     const PAGE_W = 612, PAGE_H = 792;
+    // Bottom breathing room so content never hugs the page edge.
+    // Every right-column section honors this via the maxY budget below.
+    // ~0.95" of whitespace keeps the last bullet visually grounded
+    // instead of crashing into the page edge.
+    const BOTTOM_MARGIN = 68;
+    const MAX_Y = PAGE_H - BOTTOM_MARGIN;
 
     // ---- Color palette ----
     // Limited to four ink colors + two fills so the resume reads as a
@@ -5117,8 +5123,16 @@ const PORTFOLIO_DATA = {
         y += 8;
       }
 
-      // School / "Currently Attending" — bold, wraps if long.
+      // School / "Currently Attending" — small navy label on top, bold
+      // school name underneath, wraps if long. The label removes the
+      // ambiguity of an unlabeled school string floating in the panel.
       if (nonEmpty(p.currently_attending)) {
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(7.5);
+        doc.setTextColor(NAVY[0], NAVY[1], NAVY[2]);
+        doc.text("CURRENTLY ATTENDING", LEFT_INNER_X, y + 9);
+        y += 12;
+
         doc.setFont("helvetica", "bold");
         doc.setFontSize(11);
         doc.setTextColor(INK[0], INK[1], INK[2]);
@@ -5214,12 +5228,18 @@ const PORTFOLIO_DATA = {
     }
 
     // ---- RIGHT COLUMN ----
+    // Sections are rendered in priority order. Each one is capped by
+    // MAX_Y so the page always preserves BOTTOM_MARGIN of breathing
+    // room — overflow items are silently dropped instead of running
+    // off the bottom edge. Caps are deliberately balanced so Recent
+    // Events actually gets airtime instead of being starved by the
+    // two sections above it.
     function drawRightColumn(doc, data) {
       let y = drawName(doc, data, TOP_BAR_H + 32);
       y = drawStatsBlock(doc, data, y);
       y = drawSection(doc, "ACHIEVEMENTS",     computeAchievements(data), y);
-      y = drawSection(doc, "UPCOMING EVENTS",  computeUpcoming(),          y);
-      y = drawSection(doc, "RECENT EVENTS",    computeRecent(data),        y);
+      y = drawSection(doc, "UPCOMING EVENTS",  computeUpcoming(),         y);
+      y = drawSection(doc, "RECENT EVENTS",    computeRecent(data),       y);
       return y;
     }
 
@@ -5274,39 +5294,52 @@ const PORTFOLIO_DATA = {
       return ruleY + 12;
     }
 
-    // Compact stats lines under the name. Skips fields that aren't set so
-    // the block self-tunes to whatever data is filled in.
+    // Stats lines under the name, rendered as a small tag/value table.
+    // Each row: navy uppercase label on the left, content on the right —
+    // mirrors the bullet-row treatment used by drawSection() so the page
+    // has one consistent visual rhythm instead of two competing ones.
+    // Skips empty rows so the block self-tunes to available data.
     function drawStatsBlock(doc, data, y) {
       const stats = data.stats || {};
-      const lines = [];
+      const rows  = [];
 
       const t5  = countFinishes(data, 5);
       const t10 = countFinishes(data, 10);
       if (t5 + t10 > 0) {
-        lines.push(t5 + " top 5 finishes  |  " + t10 + " top 10 finishes");
+        rows.push(["HIGHLIGHTS", t5 + " top 5  \u00B7  " + t10 + " top 10"]);
       }
 
-      const jgsBits = [];
-      if (nonEmpty(stats["Overall JGS Rank"])) jgsBits.push("Overall " + stats["Overall JGS Rank"]);
-      if (nonEmpty(stats["TUGR Rank"]))        jgsBits.push("TUGR " + stats["TUGR Rank"]);
-      if (nonEmpty(stats["Drip Golf Rank"]))   jgsBits.push("Drip Golf " + stats["Drip Golf Rank"]);
-      if (jgsBits.length) lines.push("Rankings:  " + jgsBits.join("  |  "));
+      const rankBits = [];
+      if (nonEmpty(stats["Overall JGS Rank"])) rankBits.push("Overall " + stats["Overall JGS Rank"]);
+      if (nonEmpty(stats["TUGR Rank"]))        rankBits.push("TUGR "    + stats["TUGR Rank"]);
+      if (nonEmpty(stats["Drip Golf Rank"]))   rankBits.push("Drip "    + stats["Drip Golf Rank"]);
+      if (rankBits.length) rows.push(["RANKINGS", rankBits.join("  \u00B7  ")]);
 
       const playBits = [];
-      if (nonEmpty(stats["Scoring Average"]))          playBits.push("Scoring Avg " + stats["Scoring Average"]);
-      if (data.rankings && nonEmpty(data.rankings.Events)) playBits.push(data.rankings.Events + " events");
+      if (nonEmpty(stats["Scoring Average"]))                playBits.push("Scoring Avg " + stats["Scoring Average"]);
+      if (data.rankings && nonEmpty(data.rankings.Events))   playBits.push(data.rankings.Events + " events");
       if (data.rankings && nonEmpty(data.rankings.division)) playBits.push(data.rankings.division);
-      if (playBits.length) lines.push(playBits.join("  |  "));
+      if (playBits.length) rows.push(["PROFILE", playBits.join("  \u00B7  ")]);
 
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(9.5);
-      doc.setTextColor(INK[0], INK[1], INK[2]);
-      lines.forEach(l => {
-        const wrapped = doc.splitTextToSize(l, RIGHT_W);
-        doc.text(wrapped, RIGHT_X, y + 10);
-        y += wrapped.length * 12 + 1;
+      const TAG_W = 64;
+      const VAL_X = RIGHT_X + TAG_W;
+      const VAL_W = RIGHT_W - TAG_W;
+
+      rows.forEach(([tag, val]) => {
+        const rowY = y + 10;
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(7.5);
+        doc.setTextColor(NAVY[0], NAVY[1], NAVY[2]);
+        doc.text(tag, RIGHT_X, rowY);
+
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(9.5);
+        doc.setTextColor(INK[0], INK[1], INK[2]);
+        const lines = doc.splitTextToSize(val, VAL_W);
+        doc.text(lines, VAL_X, rowY);
+        y += Math.max(14, lines.length * 12) + 2;
       });
-      return y + 6;
+      return y + 8;
     }
 
     // Navy filled-rect section header (white uppercase text). Returns y
@@ -5324,10 +5357,15 @@ const PORTFOLIO_DATA = {
 
     // A section is: navy banner header + a vertical timeline of bullet
     // dots, each next to a wrapped line of text. Self-suppresses when
-    // there are no items so empty banners never appear.
+    // there are no items so empty banners never appear, and stops
+    // rendering items past MAX_Y so we always keep BOTTOM_MARGIN of
+    // page space free (single source of truth for overflow — callers
+    // don't have to pre-measure).
     function drawSection(doc, label, items, y) {
       if (!items.length) return y;
-      const headerStart = y;
+      // Need room for at least the header + one bullet line, otherwise
+      // skip the section entirely rather than orphan a banner.
+      if (y + 18 + 14 > MAX_Y) return y;
       y = drawSectionHeader(doc, label, y);
 
       const dotX = RIGHT_X + 8;
@@ -5340,14 +5378,17 @@ const PORTFOLIO_DATA = {
       doc.setTextColor(INK[0], INK[1], INK[2]);
 
       let lastDotY = firstDotY;
-      items.forEach((item) => {
+      for (const item of items) {
+        const wrapped = doc.splitTextToSize(item, textW);
+        const rowHeight = wrapped.length * 11 + 4;
+        // Budget check BEFORE drawing so we never paint past MAX_Y.
+        if (y + rowHeight > MAX_Y) break;
         doc.setFillColor(NAVY[0], NAVY[1], NAVY[2]);
         doc.circle(dotX, y + 6, 1.8, "F");
         lastDotY = y + 6;
-        const wrapped = doc.splitTextToSize(item, textW);
         doc.text(wrapped, textX, y + 8);
-        y += wrapped.length * 11 + 4;
-      });
+        y += rowHeight;
+      }
 
       // Vertical timeline through the dots.
       doc.setDrawColor(NAVY[0], NAVY[1], NAVY[2]);
@@ -5373,6 +5414,13 @@ const PORTFOLIO_DATA = {
       return count;
     }
 
+    // Per-section item caps. Balanced so all three sections get airtime
+    // on a single page; drawSection() still enforces MAX_Y as the hard
+    // safety net, but these caps keep the layout predictable.
+    const MAX_ACHIEVEMENTS = 6;
+    const MAX_UPCOMING     = 5;
+    const MAX_RECENT       = 6;
+
     // Up to N best finishes from each season, formatted "YYYY: Place — Name".
     // Sorted by place ASC (best first) within each season, then concatenated
     // newest-season-first so the most recent highlights lead.
@@ -5391,10 +5439,10 @@ const PORTFOLIO_DATA = {
           });
         out.push(...ranked);
       });
-      return out.slice(0, 10);
+      return out.slice(0, MAX_ACHIEVEMENTS);
     }
 
-    // Future tournaments only, soonest first, capped at 8.
+    // Future tournaments only, soonest first.
     function computeUpcoming() {
       if (!window.UpcomingTournaments ||
           typeof window.UpcomingTournaments.getAll !== "function") return [];
@@ -5405,7 +5453,7 @@ const PORTFOLIO_DATA = {
           return !Number.isNaN(ts) && ts >= now;
         })
         .sort((a, b) => Date.parse(a.date) - Date.parse(b.date))
-        .slice(0, 8)
+        .slice(0, MAX_UPCOMING)
         .map((t) => {
           const d   = formatShortDate(t.date);
           const loc = nonEmpty(t.location) ? " — " + t.location : "";
@@ -5413,7 +5461,7 @@ const PORTFOLIO_DATA = {
         });
     }
 
-    // Most recent 8 tournaments across all years, sorted newest-first.
+    // Most recent tournaments across all years, sorted newest-first.
     function computeRecent(data) {
       const flat = [];
       data.seasons.forEach(({ tournaments }) => flat.push(...tournaments));
@@ -5424,7 +5472,7 @@ const PORTFOLIO_DATA = {
           ? window.parseTournamentDate(b.date) : new Date(0);
         return pb - pa;
       });
-      return flat.slice(0, 8).map((t) => {
+      return flat.slice(0, MAX_RECENT).map((t) => {
         const d     = formatShortDate(t.date);
         const place = nonEmpty(t.place) ? "  |  " + t.place : "";
         const total = nonEmpty(t.total) ? "  |  " + t.total : "";
