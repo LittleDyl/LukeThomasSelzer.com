@@ -4286,7 +4286,13 @@ const PORTFOLIO_DATA = {
       await fetchAll();
     }
 
-    return { init };
+    // Read-only snapshot of the current upcoming-tournaments cache.
+    // Returned as a *copy* so callers can't accidentally mutate the
+    // module's internal state. Used by ResumeGenerator (and any future
+    // read-only consumer) to render the same list the UI shows.
+    function getAll() { return cache.slice(); }
+
+    return { init, getAll };
   })();
 
 
@@ -4749,55 +4755,74 @@ const PORTFOLIO_DATA = {
   window.OwnerGate = OwnerGate;
 
   /* ======================================================================
-     ResumeGenerator — one-page PDF golf resume for visitors.
+     ResumeGenerator — designed one-page PDF golf resume for visitors.
 
-     Pulls from the same in-memory sources the UI reads (PORTFOLIO_DATA,
-     window.getMergedTournaments) so the PDF always matches what's on the
-     page. No server round-trip, no extra config — click the visitor pill,
-     download the file. Uses jsPDF (loaded from CDN in <head>).
+     Mimics the layout of the reference Nolan Bumgarner resume:
+       • Navy L-shaped frame (top + right bars)
+       • Sand-colored left column: player photo, school, height/weight,
+         contact info, italic bio quote
+       • White right column: huge stacked name, stats line, three
+         banner-headed sections (ACHIEVEMENTS / UPCOMING EVENTS /
+         RECENT EVENTS) with a vertical timeline of bullet dots.
 
-     Design notes:
-     - One-page-ish portrait letter, multi-page only if results overflow.
-     - Section model mirrors the reference resume (Hakon Hundhausen): hero
-       block → rankings line → "Notable Results - YYYY" per season → bio
-       → coach/socials. We render only the sections we have data for so
-       there are no awkward empty headers.
-     - All measurements in points (1pt = 1/72"). 612x792 = US Letter.
+     Data sources are unchanged from before: PORTFOLIO_DATA + the
+     globally-exposed window.getMergedTournaments / parseTournamentDate /
+     UpcomingTournaments.getAll. No new server endpoints, no extra
+     config.
+
+     Why jsPDF (not html-to-pdf): we control every pixel and the output
+     is deterministic across browsers. The trade-off is no emojis (the
+     built-in Helvetica font is WinAnsi-only) — we use bold text labels
+     instead of icon glyphs to stay typographically clean.
      ====================================================================== */
   const ResumeGenerator = (() => {
-    // Page geometry (points). Letter portrait.
-    const PAGE_W   = 612;
-    const PAGE_H   = 792;
-    const MARGIN_X = 40;
-    const MARGIN_Y = 40;
-    const CONTENT_W = PAGE_W - MARGIN_X * 2;
+    // ---- Page geometry (US Letter portrait, units = points) ----
+    const PAGE_W = 612, PAGE_H = 792;
 
-    // ---- Tiny string helpers ----
+    // ---- Color palette ----
+    // Limited to four ink colors + two fills so the resume reads as a
+    // cohesive design (and so a future theme change is a one-spot edit).
+    const NAVY     = [28, 47, 96];     // primary brand color (frame, headers)
+    const NAVY_INK = [16, 28, 60];     // darker variant for the name
+    const SAND     = [240, 232, 218];  // left panel background
+    const INK      = [51, 51, 51];     // body text
+    const MUTED    = [110, 115, 130];  // captions, hometown, footer
+    const WHITE    = [255, 255, 255];  // text on navy banners
+
+    // ---- Layout regions ----
+    // Two-column body sits between the navy top bar and the bottom edge.
+    // Left column has a rounded sand panel; right column is plain white.
+    const TOP_BAR_H   = 22;
+    const RIGHT_BAR_W = 22;
+    const LEFT_X        = 18;
+    const LEFT_W        = 212;
+    const LEFT_INNER_X  = LEFT_X + 14;
+    const LEFT_INNER_W  = LEFT_W - 28;
+    const LEFT_PANEL_Y  = TOP_BAR_H + 18;
+    const LEFT_PANEL_H  = PAGE_H - LEFT_PANEL_Y - 18;
+    const RIGHT_X       = LEFT_X + LEFT_W + 22;
+    const RIGHT_W       = PAGE_W - RIGHT_BAR_W - RIGHT_X - 6;
+
+    // ---- Tiny helpers ----
     function nonEmpty(s) { return typeof s === "string" && s.trim() !== ""; }
+    function joinNE(parts, sep) { return parts.filter(nonEmpty).join(sep); }
     function stripPrefix(s, prefix) {
       return (s || "").replace(new RegExp("^" + prefix + "\\s*", "i"), "");
     }
-    function joinNonEmpty(parts, sep) {
-      return parts.filter(nonEmpty).join(sep);
+
+    // Format any of the project's date strings as a compact M/D label
+    // (e.g. "11/30" or "5/4"). Reuses the year/iso patterns from
+    // parseTournamentDate so the rules stay aligned.
+    function formatShortDate(raw) {
+      if (!raw) return "";
+      const us = /^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/.exec(raw);
+      if (us) return (+us[1]) + "/" + (+us[2]);
+      const iso = /^(\d{4})-(\d{2})-(\d{2})$/.exec(raw);
+      if (iso) return (+iso[2]) + "/" + (+iso[3]);
+      return raw;
     }
 
-    // ---- Tournament formatting ----
-    // Compact one-liner: "Place — Name — total (rounds) (date)"
-    function formatTournament(t) {
-      const place  = nonEmpty(t.place) ? t.place : "—";
-      const name   = (t.name || "Untitled tournament").trim();
-      const rounds = Array.isArray(t.rounds) && t.rounds.length
-        ? "(" + t.rounds.map(r => (r.score || "").split(" ")[0]).filter(Boolean).join("-") + ")"
-        : "";
-      const total  = nonEmpty(t.total)    ? t.total            : "";
-      const date   = nonEmpty(t.date)     ? "(" + t.date + ")" : "";
-      const tail   = joinNonEmpty([total, rounds, date], " ");
-      return joinNonEmpty([place, name, tail], " — ");
-    }
-
-    // ---- Player photo → dataURL (best-effort) ----
-    // Drawing onto a canvas can fail with a CORS-tainted image. We catch
-    // and return null so the PDF still generates without the avatar.
+    // ---- Player photo → dataURL (best-effort, CORS-safe) ----
     function photoDataURL() {
       const img = document.getElementById("player-photo");
       if (!img || !img.complete || !img.naturalWidth) return null;
@@ -4813,204 +4838,372 @@ const PORTFOLIO_DATA = {
       }
     }
 
-    // ---- PDF drawing cursor ----
-    // Wraps a jsPDF instance with a moving y-cursor so each "add" call
-    // doesn't have to thread (doc, y) → y around manually. Single source
-    // of truth for vertical position.
-    function makeCursor(doc) {
-      let y = MARGIN_Y;
+    // ---- Frame: top bar + right bar + left panel ----
+    function drawFrame(doc) {
+      doc.setFillColor(NAVY[0], NAVY[1], NAVY[2]);
+      doc.rect(0, 0, PAGE_W, TOP_BAR_H, "F");
+      doc.rect(PAGE_W - RIGHT_BAR_W, 0, RIGHT_BAR_W, PAGE_H, "F");
 
-      function ensureRoom(needed) {
-        if (y + needed > PAGE_H - MARGIN_Y) {
-          doc.addPage();
-          y = MARGIN_Y;
-        }
-      }
-
-      function text(str, opts = {}) {
-        const size   = opts.size   || 10;
-        const style  = opts.style  || "normal";
-        const color  = opts.color  || [31, 42, 36]; // --charcoal-ish
-        const x      = opts.x      || MARGIN_X;
-        const maxW   = opts.maxW   || CONTENT_W;
-        const gap    = opts.gap    || 2;
-        doc.setFont("helvetica", style);
-        doc.setFontSize(size);
-        doc.setTextColor(color[0], color[1], color[2]);
-        const lines = doc.splitTextToSize(String(str), maxW);
-        const lineH = size * 1.15;
-        ensureRoom(lines.length * lineH);
-        doc.text(lines, x, y + size); // baseline-aware
-        y += lines.length * lineH + gap;
-      }
-
-      function sectionHeader(label) {
-        y += 4;
-        ensureRoom(20);
-        doc.setDrawColor(31, 77, 43);   // --green-deep
-        doc.setLineWidth(0.6);
-        doc.line(MARGIN_X, y + 14, PAGE_W - MARGIN_X, y + 14);
-        text(label, { size: 12, style: "bold", color: [31, 77, 43], gap: 6 });
-      }
-
-      function bullet(str) {
-        text("• " + str, { size: 9.5, gap: 1, x: MARGIN_X + 4, maxW: CONTENT_W - 4 });
-      }
-
-      function spacer(px) { y += px; }
-
-      function image(dataUrl, w, h) {
-        ensureRoom(h);
-        try {
-          doc.addImage(dataUrl, "JPEG", PAGE_W - MARGIN_X - w, MARGIN_Y, w, h);
-        } catch (err) {
-          console.warn("ResumeGenerator: addImage failed:", err);
-        }
-      }
-
-      return { text, sectionHeader, bullet, spacer, image, getY: () => y };
+      doc.setFillColor(SAND[0], SAND[1], SAND[2]);
+      doc.roundedRect(LEFT_X, LEFT_PANEL_Y, LEFT_W, LEFT_PANEL_H, 6, 6, "F");
     }
 
-    // ---- Data collection ----
-    // Bundles everything the renderer needs from the existing in-memory
-    // sources. Read-only; no side effects.
+    // ---- LEFT COLUMN ----
+    // Photo → school → height/weight → contact → (anchored at bottom) bio.
+    function drawLeftColumn(doc, data) {
+      const p = data.personal;
+      let y = LEFT_PANEL_Y + 14;
+
+      // Square photo at the top of the panel (centered, full inner width).
+      const photo = photoDataURL();
+      if (photo) {
+        const size = LEFT_INNER_W;
+        try { doc.addImage(photo, "JPEG", LEFT_INNER_X, y, size, size); }
+        catch (err) { console.warn("ResumeGenerator: addImage failed:", err); }
+        y += size + 14;
+      } else {
+        y += 8;
+      }
+
+      // School / "Currently Attending" — bold, wraps if long.
+      if (nonEmpty(p.currently_attending)) {
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(11);
+        doc.setTextColor(INK[0], INK[1], INK[2]);
+        const lines = doc.splitTextToSize(p.currently_attending, LEFT_INNER_W);
+        doc.text(lines, LEFT_INNER_X, y + 10);
+        y += lines.length * 13;
+      }
+      if (nonEmpty(p.hometown)) {
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(9.5);
+        doc.setTextColor(MUTED[0], MUTED[1], MUTED[2]);
+        doc.text(p.hometown, LEFT_INNER_X, y + 10);
+        y += 14;
+      }
+      // class_year intentionally omitted here — it already appears
+      // prominently in the right-column header next to the player's name.
+      // Two copies on one resume looks like a bug (DRY).
+      y += 8;
+
+      // Height / Weight one-liner.
+      const hw = [];
+      if (nonEmpty(p.height)) hw.push("Height: " + p.height);
+      if (nonEmpty(p.weight)) hw.push("Weight: " + p.weight);
+      if (hw.length) {
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(10);
+        doc.setTextColor(INK[0], INK[1], INK[2]);
+        doc.text(hw.join("   "), LEFT_INNER_X, y + 10);
+        y += 18;
+      }
+
+      // Age (small, secondary).
+      const ageRaw = stripPrefix(p.age, "Age:");
+      if (nonEmpty(ageRaw)) {
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(9.5);
+        doc.setTextColor(INK[0], INK[1], INK[2]);
+        doc.text("Age: " + ageRaw, LEFT_INNER_X, y + 10);
+        y += 14;
+      }
+
+      // Contact block — each row is a bold label + value on the same line.
+      // (No emoji icons because Helvetica's WinAnsi charset can't render
+      // them. Bold labels read cleanly and print sharp.)
+      y += 6;
+      y = drawContactRow(doc, y, "Phone",   p.phone);
+      y = drawContactRow(doc, y, "Address", p.home_address);
+      const ig = nonEmpty(p.instagram) ? "@" + p.instagram.replace(/^@/, "") : "";
+      y = drawContactRow(doc, y, "Instagram", ig);
+      const web = nonEmpty(p.website) ? p.website : "";
+      y = drawContactRow(doc, y, "Website", web);
+
+      // Bio paragraph anchored near the bottom of the panel, in italic,
+      // styled as a pull quote. Skipped silently if no bio is set.
+      if (nonEmpty(p.bio)) {
+        doc.setFont("helvetica", "italic");
+        doc.setFontSize(7.8);
+        doc.setTextColor(INK[0], INK[1], INK[2]);
+        const lines = doc.splitTextToSize('"' + p.bio.trim() + '"', LEFT_INNER_W);
+        const startY = Math.max(
+          y + 14,
+          LEFT_PANEL_Y + LEFT_PANEL_H - lines.length * 9.5 - 16
+        );
+        doc.text(lines, LEFT_INNER_X, startY);
+      }
+    }
+
+    // Render one "Label: value" row in the left column. Wraps long values
+    // (e.g. multi-line addresses). Returns the new y cursor.
+    function drawContactRow(doc, y, label, value) {
+      if (!nonEmpty(value)) return y;
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(8.5);
+      doc.setTextColor(NAVY[0], NAVY[1], NAVY[2]);
+      doc.text(label.toUpperCase(), LEFT_INNER_X, y + 9);
+
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9);
+      doc.setTextColor(INK[0], INK[1], INK[2]);
+      const lines = doc.splitTextToSize(value, LEFT_INNER_W);
+      doc.text(lines, LEFT_INNER_X, y + 21);
+      return y + 21 + lines.length * 11 + 4;
+    }
+
+    // ---- RIGHT COLUMN ----
+    function drawRightColumn(doc, data) {
+      let y = drawName(doc, data, TOP_BAR_H + 32);
+      y = drawStatsBlock(doc, data, y);
+      y = drawSection(doc, "ACHIEVEMENTS",     computeAchievements(data), y);
+      y = drawSection(doc, "UPCOMING EVENTS",  computeUpcoming(),          y);
+      y = drawSection(doc, "RECENT EVENTS",    computeRecent(data),        y);
+      return y;
+    }
+
+    // BIG NAME stacked on (up to) two lines, with class year tucked at the
+    // baseline of the last line like the reference resume. Returns y just
+    // below the horizontal rule.
+    function drawName(doc, data, y) {
+      const name = (data.personal.name || "Player").trim().toUpperCase();
+      const parts = name.split(/\s+/);
+      const first = parts[0] || "";
+      const rest  = parts.slice(1).join(" ");
+
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(NAVY_INK[0], NAVY_INK[1], NAVY_INK[2]);
+      doc.setFontSize(36);
+      doc.text(first, RIGHT_X, y + 28);
+      let baselineY = y + 28;
+      if (rest) {
+        baselineY = y + 28 + 36;
+        doc.text(rest, RIGHT_X, baselineY);
+      }
+
+      // Measure the last name line WHILE the font is still 36pt — if we
+      // dropped to 11pt first, getTextWidth would underestimate by ~70%
+      // and the class-year label would jam back into the name.
+      const lastLineWidth = doc.getTextWidth(rest || first);
+
+      // Class year — small label. Render inline (right of the last name
+      // line) when there's room, otherwise drop to its own line below the
+      // name so it doesn't clip into the navy right-bar. Long last names
+      // like "THOMAS SELZER" tip into the second branch.
+      let ruleY = baselineY + 8;
+      if (nonEmpty(data.personal.class_year)) {
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(11);
+        doc.setTextColor(INK[0], INK[1], INK[2]);
+        const classW   = doc.getTextWidth(data.personal.class_year);
+        const inlineX  = RIGHT_X + lastLineWidth + 10;
+        const fitsInline = inlineX + classW <= RIGHT_X + RIGHT_W;
+        if (fitsInline) {
+          doc.text(data.personal.class_year, inlineX, baselineY - 4);
+        } else {
+          doc.text(data.personal.class_year, RIGHT_X, baselineY + 16);
+          ruleY = baselineY + 24;
+        }
+      }
+
+      // Horizontal rule
+      doc.setDrawColor(NAVY[0], NAVY[1], NAVY[2]);
+      doc.setLineWidth(1);
+      doc.line(RIGHT_X, ruleY, RIGHT_X + RIGHT_W, ruleY);
+      return ruleY + 12;
+    }
+
+    // Compact stats lines under the name. Skips fields that aren't set so
+    // the block self-tunes to whatever data is filled in.
+    function drawStatsBlock(doc, data, y) {
+      const stats = data.stats || {};
+      const lines = [];
+
+      const t5  = countFinishes(data, 5);
+      const t10 = countFinishes(data, 10);
+      if (t5 + t10 > 0) {
+        lines.push(t5 + " top 5 finishes  |  " + t10 + " top 10 finishes");
+      }
+
+      const jgsBits = [];
+      if (nonEmpty(stats["Overall JGS Rank"])) jgsBits.push("Overall " + stats["Overall JGS Rank"]);
+      if (nonEmpty(stats["TUGR Rank"]))        jgsBits.push("TUGR " + stats["TUGR Rank"]);
+      if (nonEmpty(stats["Drip Golf Rank"]))   jgsBits.push("Drip Golf " + stats["Drip Golf Rank"]);
+      if (jgsBits.length) lines.push("Rankings:  " + jgsBits.join("  |  "));
+
+      const playBits = [];
+      if (nonEmpty(stats["Scoring Average"]))          playBits.push("Scoring Avg " + stats["Scoring Average"]);
+      if (data.rankings && nonEmpty(data.rankings.Events)) playBits.push(data.rankings.Events + " events");
+      if (data.rankings && nonEmpty(data.rankings.division)) playBits.push(data.rankings.division);
+      if (playBits.length) lines.push(playBits.join("  |  "));
+
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9.5);
+      doc.setTextColor(INK[0], INK[1], INK[2]);
+      lines.forEach(l => {
+        const wrapped = doc.splitTextToSize(l, RIGHT_W);
+        doc.text(wrapped, RIGHT_X, y + 10);
+        y += wrapped.length * 12 + 1;
+      });
+      return y + 6;
+    }
+
+    // Navy filled-rect section header (white uppercase text). Returns y
+    // just below the banner ready for the section body.
+    function drawSectionHeader(doc, label, y) {
+      const h = 18;
+      doc.setFillColor(NAVY[0], NAVY[1], NAVY[2]);
+      doc.rect(RIGHT_X, y, RIGHT_W, h, "F");
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(11);
+      doc.setTextColor(WHITE[0], WHITE[1], WHITE[2]);
+      doc.text(label, RIGHT_X + 10, y + 12.5);
+      return y + h + 8;
+    }
+
+    // A section is: navy banner header + a vertical timeline of bullet
+    // dots, each next to a wrapped line of text. Self-suppresses when
+    // there are no items so empty banners never appear.
+    function drawSection(doc, label, items, y) {
+      if (!items.length) return y;
+      const headerStart = y;
+      y = drawSectionHeader(doc, label, y);
+
+      const dotX = RIGHT_X + 8;
+      const textX = dotX + 10;
+      const textW = RIGHT_W - (textX - RIGHT_X) - 4;
+      const firstDotY = y + 6;
+
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9);
+      doc.setTextColor(INK[0], INK[1], INK[2]);
+
+      let lastDotY = firstDotY;
+      items.forEach((item) => {
+        doc.setFillColor(NAVY[0], NAVY[1], NAVY[2]);
+        doc.circle(dotX, y + 6, 1.8, "F");
+        lastDotY = y + 6;
+        const wrapped = doc.splitTextToSize(item, textW);
+        doc.text(wrapped, textX, y + 8);
+        y += wrapped.length * 11 + 4;
+      });
+
+      // Vertical timeline through the dots.
+      doc.setDrawColor(NAVY[0], NAVY[1], NAVY[2]);
+      doc.setLineWidth(0.6);
+      doc.line(dotX, firstDotY, dotX, lastDotY);
+      return y + 8;
+    }
+
+    // ---- Data aggregation helpers ----
+    function placeNumeric(place) {
+      const n = parseInt(String(place || "").replace(/^T/i, ""), 10);
+      return Number.isNaN(n) ? null : n;
+    }
+
+    function countFinishes(data, maxPlace) {
+      let count = 0;
+      data.seasons.forEach(({ tournaments }) => {
+        tournaments.forEach((t) => {
+          const n = placeNumeric(t.place);
+          if (n !== null && n <= maxPlace) count++;
+        });
+      });
+      return count;
+    }
+
+    // Up to N best finishes from each season, formatted "YYYY: Place — Name".
+    // Sorted by place ASC (best first) within each season, then concatenated
+    // newest-season-first so the most recent highlights lead.
+    function computeAchievements(data) {
+      const PER_SEASON = 3;
+      const out = [];
+      data.seasons.forEach(({ year, tournaments }) => {
+        const ranked = tournaments
+          .map((t) => ({ t, n: placeNumeric(t.place) }))
+          .filter((x) => x.n !== null)
+          .sort((a, b) => a.n - b.n)
+          .slice(0, PER_SEASON)
+          .map(({ t }) => {
+            const total = nonEmpty(t.total) ? "  (" + t.total + ")" : "";
+            return year + ":  " + t.place + " — " + t.name + total;
+          });
+        out.push(...ranked);
+      });
+      return out.slice(0, 10);
+    }
+
+    // Future tournaments only, soonest first, capped at 8.
+    function computeUpcoming() {
+      if (!window.UpcomingTournaments ||
+          typeof window.UpcomingTournaments.getAll !== "function") return [];
+      const now = Date.now() - 24 * 60 * 60 * 1000;
+      return window.UpcomingTournaments.getAll()
+        .filter((t) => {
+          const ts = Date.parse(t.date || "");
+          return !Number.isNaN(ts) && ts >= now;
+        })
+        .sort((a, b) => Date.parse(a.date) - Date.parse(b.date))
+        .slice(0, 8)
+        .map((t) => {
+          const d   = formatShortDate(t.date);
+          const loc = nonEmpty(t.location) ? " — " + t.location : "";
+          return (d ? d + "  " : "") + t.name + loc;
+        });
+    }
+
+    // Most recent 8 tournaments across all years, sorted newest-first.
+    function computeRecent(data) {
+      const flat = [];
+      data.seasons.forEach(({ tournaments }) => flat.push(...tournaments));
+      flat.sort((a, b) => {
+        const pa = typeof window.parseTournamentDate === "function"
+          ? window.parseTournamentDate(a.date) : new Date(0);
+        const pb = typeof window.parseTournamentDate === "function"
+          ? window.parseTournamentDate(b.date) : new Date(0);
+        return pb - pa;
+      });
+      return flat.slice(0, 8).map((t) => {
+        const d     = formatShortDate(t.date);
+        const place = nonEmpty(t.place) ? "  |  " + t.place : "";
+        const total = nonEmpty(t.total) ? "  |  " + t.total : "";
+        return (d ? d + "  " : "") + t.name + place + total;
+      });
+    }
+
     function collectData() {
       const p = (PORTFOLIO_DATA && PORTFOLIO_DATA.personal) || {};
       const g = (PORTFOLIO_DATA && PORTFOLIO_DATA.golf)     || {};
-      const stats    = g.stats    || {};
-      const rankings = g.rankings || {};
-
-      // Per-year tournament lists — merged scraped + user-added, sorted
-      // newest-first by the app.js helper (shared single source of truth).
       const years = Object.keys(PORTFOLIO_DATA.seasons || {})
         .sort((a, b) => Number(b) - Number(a));
-      const seasons = years.map(year => ({
+      const seasons = years.map((year) => ({
         year,
         tournaments: typeof window.getMergedTournaments === "function"
           ? window.getMergedTournaments(year)
           : (PORTFOLIO_DATA.seasons[year] || []).slice(),
       }));
-
-      return { personal: p, stats, rankings, seasons };
+      return {
+        personal:  p,
+        stats:     g.stats    || {},
+        rankings:  g.rankings || {},
+        seasons,
+      };
     }
 
-    // ---- Header / hero block ----
-    function drawHero(cur, data) {
-      const p = data.personal;
-      const photo = photoDataURL();
-      // Photo (right-aligned). Reserve a narrow content column for text
-      // so name/subtitle never collide with the avatar.
-      const photoW = 70, photoH = 70;
-      if (photo) cur.image(photo, photoW, photoH);
-      const textMaxW = photo ? CONTENT_W - photoW - 14 : CONTENT_W;
-
-      cur.text(p.name || "Golfer", {
-        size: 22, style: "bold", color: [31, 77, 43], gap: 4, maxW: textMaxW,
-      });
-
-      // Subtitle row: class • hometown • age • height • weight. Strips
-      // the existing "Age:" prefix the dataset uses so we don't double-
-      // print it. height/weight only appear when set, so an empty field
-      // doesn't leave dangling separators (joinNonEmpty handles that).
-      const subtitle = joinNonEmpty(
-        [p.class_year, p.hometown, stripPrefix(p.age, "Age:"), p.height, p.weight],
-        "  •  "
-      );
-      if (nonEmpty(subtitle)) {
-        cur.text(subtitle, { size: 10, color: [107, 122, 114], gap: 3, maxW: textMaxW });
-      }
-
-      // Contact row: phone, address, and socials live on the same
-      // visually-secondary line so the contact block reads as one unit.
-      // Order favors the most-likely-useful contact for a college coach.
-      const contactBits = [];
-      if (nonEmpty(p.phone))        contactBits.push("Phone: " + p.phone);
-      if (nonEmpty(p.home_address)) contactBits.push("Address: " + p.home_address);
-      if (nonEmpty(p.instagram))    contactBits.push("Instagram: @" + p.instagram.replace(/^@/, ""));
-      if (nonEmpty(p.twitter))      contactBits.push("X: @" + p.twitter.replace(/^@/, ""));
-      if (nonEmpty(p.tiktok))       contactBits.push("TikTok: @" + p.tiktok.replace(/^@/, ""));
-      if (nonEmpty(p.youtube))      contactBits.push("YouTube: @" + p.youtube.replace(/^@/, ""));
-      if (nonEmpty(p.website))      contactBits.push("Web: " + p.website);
-      if (contactBits.length) {
-        cur.text(contactBits.join("  •  "), {
-          size: 9, color: [107, 122, 114], gap: 4, maxW: textMaxW,
-        });
-      }
-
-      // Rankings / stats one-liner. Use a thin separator line.
-      const rankingBits = [];
-      if (nonEmpty(data.stats["Scoring Average"])) rankingBits.push("Scoring Avg: " + data.stats["Scoring Average"]);
-      if (nonEmpty(data.rankings.Events))          rankingBits.push("Events: " + data.rankings.Events);
-      if (nonEmpty(data.stats["Drip Golf Rank"]))  rankingBits.push("Drip Golf Rank: #" + data.stats["Drip Golf Rank"]);
-      if (nonEmpty(data.stats["Overall JGS Rank"]))rankingBits.push("JGS Rank: #" + data.stats["Overall JGS Rank"]);
-      if (nonEmpty(data.stats["TUGR Rank"]))       rankingBits.push("TUGR Rank: #" + data.stats["TUGR Rank"]);
-      if (rankingBits.length) {
-        cur.text(rankingBits.join("  •  "), {
-          size: 9.5, style: "bold", color: [46, 125, 79], gap: 4, maxW: textMaxW,
-        });
-      }
-
-      // Make sure the header block is at least as tall as the avatar so
-      // subsequent sections don't crash into it on the right side.
-      if (photo && cur.getY() < MARGIN_Y + photoH + 6) {
-        cur.spacer(MARGIN_Y + photoH + 6 - cur.getY());
-      }
-    }
-
-    // ---- Season results ----
-    function drawSeasons(cur, data) {
-      data.seasons.forEach(({ year, tournaments }) => {
-        if (!tournaments.length) return;
-        cur.sectionHeader("Notable Results — " + year);
-        tournaments.forEach(t => cur.bullet(formatTournament(t)));
-      });
-    }
-
-    // ---- Bio + scoring profile ----
-    function drawBio(cur, data) {
-      const bio = data.personal.bio;
-      if (nonEmpty(bio)) {
-        cur.sectionHeader("Personal Bio");
-        cur.text(bio, { size: 10, gap: 4 });
-      }
-
-      const sc = (PORTFOLIO_DATA.golf && PORTFOLIO_DATA.golf.scoring) || {};
-      const scoringBits = [];
-      if (nonEmpty(sc["Par 3's"])) scoringBits.push("Par 3s: " + sc["Par 3's"]);
-      if (nonEmpty(sc["Par 4's"])) scoringBits.push("Par 4s: " + sc["Par 4's"]);
-      if (nonEmpty(sc["Par 5's"])) scoringBits.push("Par 5s: " + sc["Par 5's"]);
-      if (nonEmpty(sc.Birdies))    scoringBits.push("Birdies: " + sc.Birdies);
-      if (nonEmpty(sc.Pars))       scoringBits.push("Pars: " + sc.Pars);
-      if (nonEmpty(sc.Bogeys))     scoringBits.push("Bogeys: " + sc.Bogeys);
-      if (scoringBits.length) {
-        cur.sectionHeader("Scoring Profile");
-        cur.text(scoringBits.join("  •  "), { size: 9.5, gap: 4 });
-      }
-
-      if (nonEmpty(data.personal.currently_attending)) {
-        cur.sectionHeader("School");
-        cur.text(data.personal.currently_attending, { size: 10, gap: 4 });
-      }
-    }
-
-    // ---- Footer (small generated-on note) ----
     function drawFooter(doc) {
       const total = doc.getNumberOfPages();
       for (let i = 1; i <= total; i++) {
         doc.setPage(i);
         doc.setFont("helvetica", "italic");
         doc.setFontSize(8);
-        doc.setTextColor(140, 150, 145);
+        doc.setTextColor(MUTED[0], MUTED[1], MUTED[2]);
         const stamp = "Generated " + new Date().toLocaleDateString() +
-                      "  •  Page " + i + " of " + total;
-        doc.text(stamp, PAGE_W / 2, PAGE_H - 18, { align: "center" });
+                      "  ·  Page " + i + " of " + total;
+        // Center the stamp in the content area (excluding the right navy bar).
+        doc.text(stamp, (PAGE_W - RIGHT_BAR_W) / 2, PAGE_H - 8, { align: "center" });
       }
     }
 
-    // Wait up to `timeoutMs` for the jsPDF CDN script to attach window.jspdf.
-    // Returns true on success, false on timeout. Polls cheaply (every 50 ms)
-    // because the script is normally already loaded by the time the user
-    // clicks — this only matters on the rare slow-network first click.
+    // Wait up to timeoutMs for the jsPDF CDN script to attach window.jspdf.
     function waitForJsPDF(timeoutMs = 5000) {
       return new Promise((resolve) => {
         if (window.jspdf && window.jspdf.jsPDF) return resolve(true);
@@ -5024,7 +5217,6 @@ const PORTFOLIO_DATA = {
       });
     }
 
-    // ---- Public entry point ----
     async function generate() {
       const ready = await waitForJsPDF();
       if (!ready) {
@@ -5032,13 +5224,12 @@ const PORTFOLIO_DATA = {
         return;
       }
       const { jsPDF } = window.jspdf;
-      const doc = new jsPDF({ unit: "pt", format: "letter" });
+      const doc  = new jsPDF({ unit: "pt", format: "letter" });
       const data = collectData();
-      const cur  = makeCursor(doc);
 
-      drawHero(cur, data);
-      drawSeasons(cur, data);
-      drawBio(cur, data);
+      drawFrame(doc);
+      drawLeftColumn(doc, data);
+      drawRightColumn(doc, data);
       drawFooter(doc);
 
       const safeName = (data.personal.name || "player")
@@ -5056,7 +5247,7 @@ const PORTFOLIO_DATA = {
         try {
           // requestAnimationFrame so the button-state change actually
           // paints before the (synchronous) PDF build hogs the main thread.
-          await new Promise(r => requestAnimationFrame(r));
+          await new Promise((r) => requestAnimationFrame(r));
           await generate();
         } catch (err) {
           console.error("ResumeGenerator: failed:", err);
