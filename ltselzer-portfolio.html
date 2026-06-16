@@ -4986,16 +4986,10 @@ const PORTFOLIO_DATA = {
   const ResumeGenerator = (() => {
     // ---- Page geometry (US Letter portrait, units = points) ----
     const PAGE_W = 612, PAGE_H = 792;
-    // Classic 1" margin on all four sides. Every drawn element —
-    // decorative bars, panels, text — sits inside this box, so the
-    // PDF reads like a proper letter-style document. One constant
-    // = one source of truth; changing this re-flows the whole page.
-    const MARGIN = 72;
-    // Bottom edge gets an extra ~0.55" of footer breathing room on top
-    // of the standard margin. Trailing bullets were technically inside
-    // the 1" margin but still looked crammed against the page edge —
-    // a slightly bigger footer is a normal typographic convention.
-    const BOTTOM_MARGIN = MARGIN + 40;
+    // Bottom breathing room so the last bullet never crowds the page
+    // edge. drawSection() treats MAX_Y as a hard ceiling and silently
+    // drops overflow items — single source of truth for footer space.
+    const BOTTOM_MARGIN = 100;
     const MAX_Y = PAGE_H - BOTTOM_MARGIN;
 
     // ---- Color palette ----
@@ -5009,19 +5003,18 @@ const PORTFOLIO_DATA = {
     const WHITE    = [255, 255, 255];  // text on navy banners
 
     // ---- Layout regions ----
-    // Two-column body sits inside the 1" margin. Left column has a
-    // rounded sand panel; right column is plain white. The navy top
-    // bar lives inside the margin too so it acts as a header rule
-    // rather than a full-bleed band.
-    const TOP_BAR_H     = 22;
-    const LEFT_X        = MARGIN;
-    const LEFT_W        = 196;
+    // Two-column body sits between the navy top bar and the bottom edge.
+    // Left column has a rounded sand panel; right column is plain white.
+    const TOP_BAR_H   = 22;
+    const RIGHT_BAR_W = 22;
+    const LEFT_X        = 18;
+    const LEFT_W        = 212;
     const LEFT_INNER_X  = LEFT_X + 14;
     const LEFT_INNER_W  = LEFT_W - 28;
-    const LEFT_PANEL_Y  = MARGIN + TOP_BAR_H + 14;
-    const LEFT_PANEL_H  = (PAGE_H - MARGIN) - LEFT_PANEL_Y;
-    const RIGHT_X       = LEFT_X + LEFT_W + 18;
-    const RIGHT_W       = (PAGE_W - MARGIN) - RIGHT_X;
+    const LEFT_PANEL_Y  = TOP_BAR_H + 18;
+    const LEFT_PANEL_H  = PAGE_H - LEFT_PANEL_Y - 18;
+    const RIGHT_X       = LEFT_X + LEFT_W + 22;
+    const RIGHT_W       = PAGE_W - RIGHT_BAR_W - RIGHT_X - 6;
 
     // ---- Tiny helpers ----
     function nonEmpty(s) { return typeof s === "string" && s.trim() !== ""; }
@@ -5101,14 +5094,11 @@ const PORTFOLIO_DATA = {
       return loadFreshPhoto(img.src);
     }
 
-    // ---- Frame: navy header bar + sand left panel ----
-    // Both elements live entirely inside the 1" margin so the page
-    // reads like a traditional document. The previous full-bleed
-    // right bar was removed — it doubled the visual chrome without
-    // adding information and ate into the right column's width.
+    // ---- Frame: top bar + right bar + left panel ----
     function drawFrame(doc) {
       doc.setFillColor(NAVY[0], NAVY[1], NAVY[2]);
-      doc.rect(MARGIN, MARGIN, PAGE_W - 2 * MARGIN, TOP_BAR_H, "F");
+      doc.rect(0, 0, PAGE_W, TOP_BAR_H, "F");
+      doc.rect(PAGE_W - RIGHT_BAR_W, 0, RIGHT_BAR_W, PAGE_H, "F");
 
       doc.setFillColor(SAND[0], SAND[1], SAND[2]);
       doc.roundedRect(LEFT_X, LEFT_PANEL_Y, LEFT_W, LEFT_PANEL_H, 6, 6, "F");
@@ -5244,7 +5234,7 @@ const PORTFOLIO_DATA = {
     // Events actually gets airtime instead of being starved by the
     // two sections above it.
     function drawRightColumn(doc, data) {
-      let y = drawName(doc, data, MARGIN + TOP_BAR_H + 32);
+      let y = drawName(doc, data, TOP_BAR_H + 32);
       y = drawStatsBlock(doc, data, y);
       y = drawSection(doc, "ACHIEVEMENTS",     computeAchievements(data), y);
       y = drawSection(doc, "UPCOMING EVENTS",  computeUpcoming(),         y);
