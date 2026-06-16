@@ -1578,7 +1578,12 @@ body.is-owner .visitor-only { display: none !important; }
     </button>
 
     <div class="hero-content">
-      <img id="player-photo" class="player-photo" alt="Luke Thomas Selzer" />
+      <!-- crossorigin="anonymous" is required so the visitor resume PDF can
+         draw this photo into a canvas without tainting it. Supabase Storage
+         returns the matching Access-Control-Allow-Origin header for public
+         buckets, so the fetch succeeds and toDataURL() doesn't throw. -->
+    <img id="player-photo" class="player-photo" alt="Luke Thomas Selzer"
+         crossorigin="anonymous" />
       <p class="eyebrow">Junior Golfer Portfolio</p>
       <h1 id="player-name">Luke Thomas Selzer</h1>
       <p class="tagline" id="player-meta">Charlotte, NC</p>
@@ -1613,7 +1618,8 @@ body.is-owner .visitor-only { display: none !important; }
              display slots (DRY). When the URL is empty the whole figure
              hides itself; see #personal-photo-figure[hidden] in CSS. -->
         <figure id="personal-photo-figure" class="personal-photo-figure" hidden>
-          <img id="personal-photo-large" alt="" loading="lazy" decoding="async">
+          <img id="personal-photo-large" alt="" loading="lazy" decoding="async"
+               crossorigin="anonymous">
         </figure>
         <ul class="profile-list" id="personal-list"></ul>
         <p class="muted" id="personal-bio" style="margin-top:1.4rem"></p>
@@ -4823,19 +4829,62 @@ const PORTFOLIO_DATA = {
     }
 
     // ---- Player photo → dataURL (best-effort, CORS-safe) ----
-    function photoDataURL() {
+    // Two-stage strategy:
+    //   1. Fast path: try to draw the already-loaded <img id="player-photo">
+    //      onto a canvas. Works instantly when the element was fetched
+    //      with proper CORS headers (we now set crossorigin="anonymous"
+    //      on the tag, so this is the normal case).
+    //   2. Fallback: load a brand-new Image() with crossorigin set and
+    //      grab the photo via a fresh GET. Covers the edge case where
+    //      the original element was cached by the browser BEFORE we
+    //      added crossorigin (which would taint the canvas forever).
+    // Async because the fallback waits on an Image.onload event.
+    function rasterize(img) {
+      const c = document.createElement("canvas");
+      c.width  = img.naturalWidth;
+      c.height = img.naturalHeight;
+      c.getContext("2d").drawImage(img, 0, 0);
+      return c.toDataURL("image/jpeg", 0.9);
+    }
+
+    function loadFreshPhoto(src) {
+      return new Promise((resolve) => {
+        const fresh = new Image();
+        fresh.crossOrigin = "anonymous";
+        // Bust any cached non-CORS copy. We append a harmless query param
+        // so the browser issues a NEW request that carries the Origin
+        // header (cached responses ignore the new crossorigin attribute).
+        const cacheBust = src.includes("?") ? "&" : "?";
+        fresh.onload  = () => {
+          try { resolve(rasterize(fresh)); }
+          catch (err) {
+            console.warn("ResumeGenerator: fresh photo still CORS-blocked:", err);
+            resolve(null);
+          }
+        };
+        fresh.onerror = () => {
+          console.warn("ResumeGenerator: fresh photo failed to load:", src);
+          resolve(null);
+        };
+        fresh.src = src + cacheBust + "resume=1";
+      });
+    }
+
+    async function photoDataURL() {
       const img = document.getElementById("player-photo");
-      if (!img || !img.complete || !img.naturalWidth) return null;
-      try {
-        const c = document.createElement("canvas");
-        c.width  = img.naturalWidth;
-        c.height = img.naturalHeight;
-        c.getContext("2d").drawImage(img, 0, 0);
-        return c.toDataURL("image/jpeg", 0.85);
-      } catch (err) {
-        console.warn("ResumeGenerator: couldn't rasterize player photo:", err);
-        return null;
+      if (!img || !img.src) return null;
+
+      // Fast path — reuse the already-loaded DOM image.
+      if (img.complete && img.naturalWidth > 0) {
+        try { return rasterize(img); }
+        catch (err) {
+          // Canvas tainted — fall through to the fetch-fresh path.
+          console.info("ResumeGenerator: DOM photo tainted, refetching with CORS…");
+        }
       }
+
+      // Fallback: explicit CORS fetch via a fresh Image element.
+      return loadFreshPhoto(img.src);
     }
 
     // ---- Frame: top bar + right bar + left panel ----
@@ -4850,15 +4899,16 @@ const PORTFOLIO_DATA = {
 
     // ---- LEFT COLUMN ----
     // Photo → school → height/weight → contact → (anchored at bottom) bio.
+    // The photo dataURL is preloaded in generate() and passed in via the
+    // data bundle, so this function stays purely synchronous.
     function drawLeftColumn(doc, data) {
       const p = data.personal;
       let y = LEFT_PANEL_Y + 14;
 
       // Square photo at the top of the panel (centered, full inner width).
-      const photo = photoDataURL();
-      if (photo) {
+      if (data.photoDataURL) {
         const size = LEFT_INNER_W;
-        try { doc.addImage(photo, "JPEG", LEFT_INNER_X, y, size, size); }
+        try { doc.addImage(data.photoDataURL, "JPEG", LEFT_INNER_X, y, size, size); }
         catch (err) { console.warn("ResumeGenerator: addImage failed:", err); }
         y += size + 14;
       } else {
@@ -5226,6 +5276,11 @@ const PORTFOLIO_DATA = {
       const { jsPDF } = window.jspdf;
       const doc  = new jsPDF({ unit: "pt", format: "letter" });
       const data = collectData();
+
+      // Preload the player photo BEFORE drawing so the left-column
+      // renderer can stay synchronous. photoDataURL() may need a network
+      // round-trip (fetch-fresh CORS fallback) so we await it once here.
+      data.photoDataURL = await photoDataURL();
 
       drawFrame(doc);
       drawLeftColumn(doc, data);
