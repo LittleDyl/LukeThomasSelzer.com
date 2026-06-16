@@ -5332,11 +5332,11 @@ const PORTFOLIO_DATA = {
         doc.text(tag, RIGHT_X, rowY);
 
         doc.setFont("helvetica", "normal");
-        doc.setFontSize(9.5);
+        doc.setFontSize(10.5);
         doc.setTextColor(INK[0], INK[1], INK[2]);
         const lines = doc.splitTextToSize(val, VAL_W);
         doc.text(lines, VAL_X, rowY);
-        y += Math.max(14, lines.length * 12) + 2;
+        y += Math.max(15, lines.length * 13) + 2;
       });
       return y + 8;
     }
@@ -5373,13 +5373,14 @@ const PORTFOLIO_DATA = {
       const firstDotY = y + 6;
 
       doc.setFont("helvetica", "normal");
-      doc.setFontSize(9);
+      doc.setFontSize(10.5);
       doc.setTextColor(INK[0], INK[1], INK[2]);
 
       let lastDotY = firstDotY;
       for (const item of items) {
         const wrapped = doc.splitTextToSize(item, textW);
-        const rowHeight = wrapped.length * 11 + 4;
+        // Row height tracks the font size — bump font, bump leading.
+        const rowHeight = wrapped.length * 13 + 5;
         // Budget check BEFORE drawing so we never paint past MAX_Y.
         if (y + rowHeight > MAX_Y) break;
         doc.setFillColor(NAVY[0], NAVY[1], NAVY[2]);
