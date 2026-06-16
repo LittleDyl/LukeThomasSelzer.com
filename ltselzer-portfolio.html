@@ -4991,7 +4991,11 @@ const PORTFOLIO_DATA = {
     // PDF reads like a proper letter-style document. One constant
     // = one source of truth; changing this re-flows the whole page.
     const MARGIN = 72;
-    const BOTTOM_MARGIN = MARGIN;
+    // Bottom edge gets an extra ~0.4" of footer breathing room on top
+    // of the standard margin. Trailing bullets were technically inside
+    // the 1" margin but still looked crammed against the page edge —
+    // a slightly bigger footer is a normal typographic convention.
+    const BOTTOM_MARGIN = MARGIN + 30;
     const MAX_Y = PAGE_H - BOTTOM_MARGIN;
 
     // ---- Color palette ----
