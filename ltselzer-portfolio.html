@@ -497,6 +497,22 @@ h3 {
 .panel-header h2,
 .panel-header h3 { margin: 0; }
 
+/* ---------- Current Coach card (Golf Bio tab) ----------
+   Sits above the rankings list. Subtle cream panel so it reads as a
+   distinct "who's coaching me" block without overshadowing the
+   numbers below. Reuses .personal-edit-form for the inline editor. */
+.coach-card {
+  margin: 0.6rem 0 1.8rem;
+  padding: 1rem 1.1rem 1.1rem;
+  background: var(--c-sand, #f3ead4);
+  border-left: 4px solid var(--c-primary, #2e7d4f);
+  border-radius: var(--radius);
+}
+.coach-card .panel-header { margin-bottom: 0.5rem; }
+.coach-card-title { font-size: 1.05rem; letter-spacing: 0.02em; }
+.coach-card .profile-list { margin: 0; }
+.coach-card .profile-list:empty { display: none; }
+
 /* ---------- Personal bio edit form ---------- */
 .personal-edit-form {
   margin-top: 1.2rem;
@@ -1717,6 +1733,43 @@ body.is-owner .visitor-only { display: none !important; }
 
     <section class="tab-panel" id="golf" role="tabpanel">
       <h2>Golf Bio <small class="muted">(These numbers reflect just the Drip Golf Official Tournaments)</small></h2>
+
+      <!-- Current Coach card. Display + inline edit form. Saves go
+           through the same /api/personal endpoint as the personal bio
+           (coach fields live in the personal blob) so we don't spin
+           up a parallel storage path — one source of truth for
+           visitor-editable profile data. -->
+      <section class="coach-card" id="coach-section" aria-labelledby="coach-heading">
+        <div class="panel-header">
+          <h3 id="coach-heading" class="coach-card-title">Current Coach</h3>
+          <button type="button" id="coach-edit-btn" class="swing-ghost-btn owner-only">✏️ Edit</button>
+        </div>
+        <div id="coach-view">
+          <p class="muted" id="coach-empty" hidden>No coach info added yet.</p>
+          <ul class="profile-list" id="coach-list"></ul>
+        </div>
+        <form id="coach-edit-form" class="personal-edit-form" hidden>
+          <div class="personal-edit-grid">
+            <label class="field full">
+              <span>Coach Name</span>
+              <input type="text" name="coach_name" placeholder="e.g. Coach Smith" autocomplete="off" />
+            </label>
+            <label class="field">
+              <span>Coach Phone</span>
+              <input type="tel" name="coach_phone" placeholder="e.g. (704) 555-0199" autocomplete="off" />
+            </label>
+            <label class="field">
+              <span>Coach Email</span>
+              <input type="email" name="coach_email" placeholder="coach@example.com" autocomplete="off" />
+            </label>
+          </div>
+          <div class="form-actions">
+            <button type="submit" class="swing-upload-btn">💾 Save</button>
+            <button type="button" id="coach-cancel-btn" class="swing-ghost-btn">Cancel</button>
+            <button type="button" id="coach-clear-btn" class="swing-ghost-btn personal-reset">Clear Coach Info</button>
+          </div>
+        </form>
+      </section>
 
       <h3>Current Season Rankings</h3>
       <ul class="profile-list" id="rankings-list"></ul>
@@ -3159,6 +3212,48 @@ const PORTFOLIO_DATA = {
     });
   }
 
+  // ---------- Current Coach card (lives on the Golf Bio tab) ----------
+  // Read-only renderer. Edit/save wiring lives inside PersonalBio
+  // alongside the rest of the personal-blob mutations (single owner
+  // of write logic). Renders into the card that ships in markup; if
+  // the markup is missing for some reason we no-op gracefully.
+  function renderCoach(data) {
+    const list  = document.getElementById("coach-list");
+    const empty = document.getElementById("coach-empty");
+    if (!list || !empty) return;
+    list.innerHTML = "";
+
+    const p = (data && data.personal) || {};
+    // Pair label with raw value AND a renderer for the value cell so
+    // phone + email can become tel:/mailto: links without an if-tree.
+    const rows = [
+      ["Name",  p.coach_name,  (v) => document.createTextNode(v)],
+      ["Phone", p.coach_phone, (v) => {
+        const a = document.createElement("a");
+        a.href = "tel:" + v.replace(/[^\d+]/g, "");
+        a.textContent = v;
+        return a;
+      }],
+      ["Email", p.coach_email, (v) => {
+        const a = document.createElement("a");
+        a.href = "mailto:" + v;
+        a.textContent = v;
+        return a;
+      }],
+    ];
+
+    let any = false;
+    rows.forEach(([label, value, makeNode]) => {
+      if (value == null || String(value).trim() === "") return;
+      any = true;
+      const li = el("li");
+      li.appendChild(el("span", "label", label));
+      li.appendChild(makeNode(String(value).trim()));
+      list.appendChild(li);
+    });
+    empty.hidden = any;
+  }
+
   // ---------- Golf bio ----------
   function renderGolf(data) {
     const fillList = (id, entries) => {
@@ -3443,8 +3538,15 @@ const PORTFOLIO_DATA = {
       "photo", "bio",
       // physical + contact — mirror with ALLOWED_FIELDS in personal.mjs
       "height", "weight", "home_address", "phone",
+      // current coach — same blob, different UI surface (Golf Bio tab).
+      "coach_name", "coach_phone", "coach_email",
       ...SOCIAL_PLATFORMS.map((p) => p.key),
     ];
+    // Subset of FIELDS that the coach edit form on the Golf Bio tab owns.
+    // Used by saveCoach() to know which keys to send and to clear when
+    // the visitor hits "Clear Coach Info". Keep in lockstep with the
+    // <input name="…"> set in the #coach-edit-form below.
+    const COACH_FIELDS = ["coach_name", "coach_phone", "coach_email"];
     let originalPersonal = null; // snapshot for "Reset to Defaults"
 
     function ownerHeaders() {
@@ -3551,9 +3653,34 @@ const PORTFOLIO_DATA = {
       });
     }
 
+    // The server treats a PUT as the full set of overrides, so for a
+    // partial save (e.g. just coach fields) we have to send the WHOLE
+    // current override set or unrelated fields get wiped. Snapshot of
+    // "what's currently different from the baked-in defaults" lets the
+    // coach form save without knowing or caring about the other 14
+    // editable fields. DRY: handleSubmit() still sends a full FIELDS
+    // map and bypasses this helper because it already has every value.
+    function currentOverrides() {
+      const o = {};
+      FIELDS.forEach((f) => {
+        const v   = PORTFOLIO_DATA.personal[f];
+        const def = originalPersonal ? originalPersonal[f] : undefined;
+        if (v == null) return;
+        const str = String(v).trim();
+        if (!str) return;
+        if (str === (def == null ? "" : String(def).trim())) return;
+        o[f] = str;
+      });
+      return o;
+    }
+
     function rerenderAll() {
       renderHero(PORTFOLIO_DATA);
       renderPersonal(PORTFOLIO_DATA);
+      // Coach card lives on the Golf Bio tab but its data comes from
+      // the personal blob, so any personal-blob mutation needs to
+      // refresh it too. Cheap to call (single DOM list) — keep DRY.
+      if (typeof renderCoach === "function") renderCoach(PORTFOLIO_DATA);
     }
 
     function toggleEditMode(editing) {
@@ -3572,38 +3699,51 @@ const PORTFOLIO_DATA = {
       });
     }
 
-    async function handleSubmit(e) {
-      e.preventDefault();
-      const form = e.currentTarget;
+    // Shared submit handler for ANY personal-blob edit form (Personal
+    // Bio form, Coach card form, anything we add later). Fields that
+    // live on the form are taken from the form; fields that DON'T are
+    // preserved from the current overrides snapshot. Without that
+    // preservation step, saving from one form would silently wipe
+    // overrides owned by other forms (e.g. coach_* getting clobbered
+    // by a Personal Bio save). One helper to rule them all — DRY.
+    async function savePartialFromForm(form) {
       const fd = new FormData(form);
-      const next = {};
-      FIELDS.forEach((f) => {
+      const ownedFields = FIELDS.filter((f) => !!form.elements[f]);
+
+      // Start from current overrides so unrelated fields survive.
+      const merged = { ...currentOverrides() };
+      ownedFields.forEach((f) => {
         const v = (fd.get(f) || "").toString().trim();
-        if (v) next[f] = v;
+        if (v) merged[f] = v;
+        else   delete merged[f]; // explicit blank on this form = clear override
       });
 
-      // Lock the Save button while the network request is in flight.
-      // Stops double-submits and gives the user real visual feedback.
       const submitBtn = form.querySelector('button[type="submit"]');
       const originalLabel = submitBtn ? submitBtn.textContent : null;
       if (submitBtn) {
         submitBtn.disabled    = true;
         submitBtn.textContent = "Saving…";
       }
-
       try {
-        await saveOverrides(next);
+        await saveOverrides(merged);
         // Apply on top of originals so removing a field reverts to default.
-        PORTFOLIO_DATA.personal = { ...originalPersonal, ...next };
+        PORTFOLIO_DATA.personal = { ...originalPersonal, ...merged };
         rerenderAll();
-        toggleEditMode(false);
-      } catch (err) {
-        alert("Couldn't save:\n" + err.message);
       } finally {
         if (submitBtn) {
           submitBtn.disabled    = false;
           submitBtn.textContent = originalLabel;
         }
+      }
+    }
+
+    async function handleSubmit(e) {
+      e.preventDefault();
+      try {
+        await savePartialFromForm(e.currentTarget);
+        toggleEditMode(false);
+      } catch (err) {
+        alert("Couldn't save:\n" + err.message);
       }
     }
 
@@ -3638,6 +3778,68 @@ const PORTFOLIO_DATA = {
       if (form)      form.addEventListener("submit", handleSubmit);
 
       wirePhotoUpload();
+      wireCoachForm();
+    }
+
+    // ---- Coach card edit form (lives on Golf Bio tab) ----
+    // Tiny wrapper around the shared savePartialFromForm pipeline so
+    // the coach editor reuses every guarantee (merge-don't-clobber,
+    // submit-button lock, rerender) without duplicating any logic.
+    function toggleCoachEditMode(editing) {
+      const view = document.getElementById("coach-view");
+      const form = document.getElementById("coach-edit-form");
+      const btn  = document.getElementById("coach-edit-btn");
+      if (view) view.hidden = editing;
+      if (form) form.hidden = !editing;
+      if (btn)  btn.hidden  = editing;
+    }
+
+    function populateCoachForm() {
+      const form = document.getElementById("coach-edit-form");
+      if (!form) return;
+      COACH_FIELDS.forEach((f) => {
+        const input = form.elements[f];
+        if (input) input.value = PORTFOLIO_DATA.personal[f] || "";
+      });
+    }
+
+    async function handleCoachSubmit(e) {
+      e.preventDefault();
+      try {
+        await savePartialFromForm(e.currentTarget);
+        toggleCoachEditMode(false);
+      } catch (err) {
+        alert("Couldn't save coach info:\n" + err.message);
+      }
+    }
+
+    async function handleCoachClear() {
+      if (!confirm("Clear current coach info for everyone?\n\nThis affects EVERY visitor on EVERY device.")) return;
+      // Wipe just the coach fields by sending overrides without them,
+      // preserving everything else. Reuses currentOverrides() so we
+      // don't accidentally touch unrelated overrides.
+      const merged = { ...currentOverrides() };
+      COACH_FIELDS.forEach((f) => { delete merged[f]; });
+      try {
+        await saveOverrides(merged);
+        PORTFOLIO_DATA.personal = { ...originalPersonal, ...merged };
+        rerenderAll();
+        toggleCoachEditMode(false);
+      } catch (err) {
+        alert("Couldn't clear coach info:\n" + err.message);
+      }
+    }
+
+    function wireCoachForm() {
+      const editBtn   = document.getElementById("coach-edit-btn");
+      const cancelBtn = document.getElementById("coach-cancel-btn");
+      const clearBtn  = document.getElementById("coach-clear-btn");
+      const form      = document.getElementById("coach-edit-form");
+
+      if (editBtn)   editBtn.addEventListener("click", () => { populateCoachForm(); toggleCoachEditMode(true); });
+      if (cancelBtn) cancelBtn.addEventListener("click", () => toggleCoachEditMode(false));
+      if (clearBtn)  clearBtn.addEventListener("click", handleCoachClear);
+      if (form)      form.addEventListener("submit", handleCoachSubmit);
     }
 
     // Lets the parent skip the "host an image somewhere" dance by uploading
@@ -4969,6 +5171,16 @@ const PORTFOLIO_DATA = {
       const web = nonEmpty(p.website) ? p.website : "";
       y = drawContactRow(doc, y, "Website", web);
 
+      // Coach block — same row treatment as Phone/Address so the panel
+      // stays visually consistent. Only emitted if at least one coach
+      // field is set (drawContactRow itself no-ops on empty values).
+      if (nonEmpty(p.coach_name) || nonEmpty(p.coach_phone) || nonEmpty(p.coach_email)) {
+        y += 4;
+        y = drawContactRow(doc, y, "Coach",       p.coach_name);
+        y = drawContactRow(doc, y, "Coach Phone", p.coach_phone);
+        y = drawContactRow(doc, y, "Coach Email", p.coach_email);
+      }
+
       // Bio paragraph anchored near the bottom of the panel, in italic,
       // styled as a pull quote. Skipped silently if no bio is set.
       if (nonEmpty(p.bio)) {
@@ -5323,6 +5535,7 @@ const PORTFOLIO_DATA = {
     renderHero(PORTFOLIO_DATA);
     renderPersonal(PORTFOLIO_DATA);
     renderGolf(PORTFOLIO_DATA);
+    renderCoach(PORTFOLIO_DATA);
     wireTabs();
     wireYearSelector();
 

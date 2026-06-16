@@ -38,6 +38,10 @@ const ALLOWED_FIELDS = new Set([
   // in the visitor resume PDF. Stored as plain strings; the client
   // decides display formatting.
   "height", "weight", "home_address", "phone",
+  // current coach — surfaced at the top of the Golf Bio tab and in the
+  // resume PDF. Kept in the personal blob (not a new endpoint) so we
+  // don't multiply the number of round-trips needed to hydrate a page.
+  "coach_name", "coach_phone", "coach_email",
   // socials — keep aligned with SOCIAL_PLATFORMS on the client
   "instagram", "twitter", "tiktok", "youtube", "facebook", "linkedin", "website",
 ]);
