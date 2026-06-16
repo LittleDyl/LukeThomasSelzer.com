@@ -10,6 +10,12 @@
        uploads, bypassing the 5 MB Netlify Functions payload cap). -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
+  <!-- jsPDF — pure-client PDF generation for the visitor "Download Resume"
+       button. Pulled from CDN so we don't have to bundle 250 KB into the
+       repo. UMD build exposes window.jspdf.jsPDF. -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js"
+          crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+
   <style>
 /* ======================================================================
    Luke Thomas Selzer — Golfer Portfolio styles
@@ -1350,6 +1356,40 @@ body.is-owner .owner-only { display: revert !important; }
 }
 .mode-pill[hidden] { display: none; }
 .mode-pill.is-visitor { background: var(--muted); }
+
+/* ---------- Visitor-only reveal (mirror of .owner-only) ----------
+   Default: visible. Hidden whenever body.is-owner is set. Same trick as
+   .owner-only just inverted — keeps the existing OwnerGate logic as the
+   single source of truth for "what mode are we in?". */
+body.is-owner .visitor-only { display: none !important; }
+
+/* ---------- Resume pill ----------
+   Lives directly under the mode-pill in the hero. Only shown in visitor
+   mode (via .visitor-only). Same visual language as .mode-pill so the
+   two read as a single stacked control group. */
+.resume-pill {
+  position: absolute; top: 3.6rem; right: 1rem; z-index: 3;
+  background: var(--green-deep); color: #fff;
+  padding: 0.45rem 0.85rem; border-radius: 999px;
+  box-shadow: var(--shadow);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  display: flex; align-items: center; gap: 0.5rem;
+  font-size: 0.8rem; font-weight: 700;
+  cursor: pointer; font-family: inherit;
+  transition: background 0.15s ease, transform 0.1s ease;
+}
+.resume-pill:hover { background: var(--green); }
+.resume-pill:active { transform: translateY(1px); }
+.resume-pill:disabled { opacity: 0.7; cursor: progress; }
+.resume-pill[hidden] { display: none; }
+@media (max-width: 480px) {
+  .resume-pill {
+    top: 3rem; right: 0.6rem;
+    padding: 0.35rem 0.65rem;
+    font-size: 0.72rem;
+    gap: 0.35rem;
+  }
+}
 .mode-pill button {
   background: rgba(255,255,255,0.18);
   color: #fff; border: none;
@@ -1526,6 +1566,17 @@ body.is-owner .owner-only { display: revert !important; }
               title="Edit site theme" aria-label="Edit site theme">🎨</button>
       <button type="button" id="mode-pill-switch">Switch to Visitor</button>
     </div>
+
+    <!-- Visitor-only resume download. Sits directly under the mode-pill
+         (top-right corner of the hero) so visitors get a one-click PDF
+         summary of the player's bio + season results. Owner-mode users
+         don't need it — they're editing, not pitching college coaches. -->
+    <button type="button" id="resume-download-btn"
+            class="resume-pill visitor-only"
+            title="Download a one-page PDF resume based on this portfolio">
+      📄 Download Resume PDF
+    </button>
+
     <div class="hero-content">
       <img id="player-photo" class="player-photo" alt="Luke Thomas Selzer" />
       <p class="eyebrow">Junior Golfer Portfolio</p>
@@ -3165,6 +3216,12 @@ const PORTFOLIO_DATA = {
     renderSeason(year, getMergedTournaments(year));
   };
 
+  // Exposed so ResumeGenerator (and any future read-only consumer) can pull
+  // the same scraped+user merged list the UI shows, without duplicating the
+  // merge/sort logic. Single source of truth → DRY.
+  window.getMergedTournaments = getMergedTournaments;
+  window.parseTournamentDate  = parseTournamentDate;
+
   // ---------- Season tournaments ----------
   function renderSeason(year, tournaments) {
     const wrap = $(`#tournaments-${year}`);
@@ -4658,6 +4715,306 @@ const PORTFOLIO_DATA = {
   // OwnerGate.promptForOwner() when the session has expired.
   window.OwnerGate = OwnerGate;
 
+  /* ======================================================================
+     ResumeGenerator — one-page PDF golf resume for visitors.
+
+     Pulls from the same in-memory sources the UI reads (PORTFOLIO_DATA,
+     window.getMergedTournaments) so the PDF always matches what's on the
+     page. No server round-trip, no extra config — click the visitor pill,
+     download the file. Uses jsPDF (loaded from CDN in <head>).
+
+     Design notes:
+     - One-page-ish portrait letter, multi-page only if results overflow.
+     - Section model mirrors the reference resume (Hakon Hundhausen): hero
+       block → rankings line → "Notable Results - YYYY" per season → bio
+       → coach/socials. We render only the sections we have data for so
+       there are no awkward empty headers.
+     - All measurements in points (1pt = 1/72"). 612x792 = US Letter.
+     ====================================================================== */
+  const ResumeGenerator = (() => {
+    // Page geometry (points). Letter portrait.
+    const PAGE_W   = 612;
+    const PAGE_H   = 792;
+    const MARGIN_X = 40;
+    const MARGIN_Y = 40;
+    const CONTENT_W = PAGE_W - MARGIN_X * 2;
+
+    // ---- Tiny string helpers ----
+    function nonEmpty(s) { return typeof s === "string" && s.trim() !== ""; }
+    function stripPrefix(s, prefix) {
+      return (s || "").replace(new RegExp("^" + prefix + "\\s*", "i"), "");
+    }
+    function joinNonEmpty(parts, sep) {
+      return parts.filter(nonEmpty).join(sep);
+    }
+
+    // ---- Tournament formatting ----
+    // Compact one-liner: "Place — Name — total (rounds) (date)"
+    function formatTournament(t) {
+      const place  = nonEmpty(t.place) ? t.place : "—";
+      const name   = (t.name || "Untitled tournament").trim();
+      const rounds = Array.isArray(t.rounds) && t.rounds.length
+        ? "(" + t.rounds.map(r => (r.score || "").split(" ")[0]).filter(Boolean).join("-") + ")"
+        : "";
+      const total  = nonEmpty(t.total)    ? t.total            : "";
+      const date   = nonEmpty(t.date)     ? "(" + t.date + ")" : "";
+      const tail   = joinNonEmpty([total, rounds, date], " ");
+      return joinNonEmpty([place, name, tail], " — ");
+    }
+
+    // ---- Player photo → dataURL (best-effort) ----
+    // Drawing onto a canvas can fail with a CORS-tainted image. We catch
+    // and return null so the PDF still generates without the avatar.
+    function photoDataURL() {
+      const img = document.getElementById("player-photo");
+      if (!img || !img.complete || !img.naturalWidth) return null;
+      try {
+        const c = document.createElement("canvas");
+        c.width  = img.naturalWidth;
+        c.height = img.naturalHeight;
+        c.getContext("2d").drawImage(img, 0, 0);
+        return c.toDataURL("image/jpeg", 0.85);
+      } catch (err) {
+        console.warn("ResumeGenerator: couldn't rasterize player photo:", err);
+        return null;
+      }
+    }
+
+    // ---- PDF drawing cursor ----
+    // Wraps a jsPDF instance with a moving y-cursor so each "add" call
+    // doesn't have to thread (doc, y) → y around manually. Single source
+    // of truth for vertical position.
+    function makeCursor(doc) {
+      let y = MARGIN_Y;
+
+      function ensureRoom(needed) {
+        if (y + needed > PAGE_H - MARGIN_Y) {
+          doc.addPage();
+          y = MARGIN_Y;
+        }
+      }
+
+      function text(str, opts = {}) {
+        const size   = opts.size   || 10;
+        const style  = opts.style  || "normal";
+        const color  = opts.color  || [31, 42, 36]; // --charcoal-ish
+        const x      = opts.x      || MARGIN_X;
+        const maxW   = opts.maxW   || CONTENT_W;
+        const gap    = opts.gap    || 2;
+        doc.setFont("helvetica", style);
+        doc.setFontSize(size);
+        doc.setTextColor(color[0], color[1], color[2]);
+        const lines = doc.splitTextToSize(String(str), maxW);
+        const lineH = size * 1.15;
+        ensureRoom(lines.length * lineH);
+        doc.text(lines, x, y + size); // baseline-aware
+        y += lines.length * lineH + gap;
+      }
+
+      function sectionHeader(label) {
+        y += 4;
+        ensureRoom(20);
+        doc.setDrawColor(31, 77, 43);   // --green-deep
+        doc.setLineWidth(0.6);
+        doc.line(MARGIN_X, y + 14, PAGE_W - MARGIN_X, y + 14);
+        text(label, { size: 12, style: "bold", color: [31, 77, 43], gap: 6 });
+      }
+
+      function bullet(str) {
+        text("• " + str, { size: 9.5, gap: 1, x: MARGIN_X + 4, maxW: CONTENT_W - 4 });
+      }
+
+      function spacer(px) { y += px; }
+
+      function image(dataUrl, w, h) {
+        ensureRoom(h);
+        try {
+          doc.addImage(dataUrl, "JPEG", PAGE_W - MARGIN_X - w, MARGIN_Y, w, h);
+        } catch (err) {
+          console.warn("ResumeGenerator: addImage failed:", err);
+        }
+      }
+
+      return { text, sectionHeader, bullet, spacer, image, getY: () => y };
+    }
+
+    // ---- Data collection ----
+    // Bundles everything the renderer needs from the existing in-memory
+    // sources. Read-only; no side effects.
+    function collectData() {
+      const p = (PORTFOLIO_DATA && PORTFOLIO_DATA.personal) || {};
+      const g = (PORTFOLIO_DATA && PORTFOLIO_DATA.golf)     || {};
+      const stats    = g.stats    || {};
+      const rankings = g.rankings || {};
+
+      // Per-year tournament lists — merged scraped + user-added, sorted
+      // newest-first by the app.js helper (shared single source of truth).
+      const years = Object.keys(PORTFOLIO_DATA.seasons || {})
+        .sort((a, b) => Number(b) - Number(a));
+      const seasons = years.map(year => ({
+        year,
+        tournaments: typeof window.getMergedTournaments === "function"
+          ? window.getMergedTournaments(year)
+          : (PORTFOLIO_DATA.seasons[year] || []).slice(),
+      }));
+
+      return { personal: p, stats, rankings, seasons };
+    }
+
+    // ---- Header / hero block ----
+    function drawHero(cur, data) {
+      const p = data.personal;
+      const photo = photoDataURL();
+      // Photo (right-aligned). Reserve a narrow content column for text
+      // so name/subtitle never collide with the avatar.
+      const photoW = 70, photoH = 70;
+      if (photo) cur.image(photo, photoW, photoH);
+      const textMaxW = photo ? CONTENT_W - photoW - 14 : CONTENT_W;
+
+      cur.text(p.name || "Golfer", {
+        size: 22, style: "bold", color: [31, 77, 43], gap: 4, maxW: textMaxW,
+      });
+
+      // Subtitle row: class • hometown • age. Strips the existing
+      // "Age:" prefix the dataset uses so we don't double-print it.
+      const subtitle = joinNonEmpty(
+        [p.class_year, p.hometown, stripPrefix(p.age, "Age:")],
+        "  •  "
+      );
+      if (nonEmpty(subtitle)) {
+        cur.text(subtitle, { size: 10, color: [107, 122, 114], gap: 3, maxW: textMaxW });
+      }
+
+      // Socials — render whichever ones the owner filled in.
+      const socialBits = [];
+      if (nonEmpty(p.instagram)) socialBits.push("Instagram: @" + p.instagram.replace(/^@/, ""));
+      if (nonEmpty(p.twitter))   socialBits.push("X: @" + p.twitter.replace(/^@/, ""));
+      if (nonEmpty(p.tiktok))    socialBits.push("TikTok: @" + p.tiktok.replace(/^@/, ""));
+      if (nonEmpty(p.youtube))   socialBits.push("YouTube: @" + p.youtube.replace(/^@/, ""));
+      if (nonEmpty(p.website))   socialBits.push("Web: " + p.website);
+      if (socialBits.length) {
+        cur.text(socialBits.join("  •  "), {
+          size: 9, color: [107, 122, 114], gap: 4, maxW: textMaxW,
+        });
+      }
+
+      // Rankings / stats one-liner. Use a thin separator line.
+      const rankingBits = [];
+      if (nonEmpty(data.stats["Scoring Average"])) rankingBits.push("Scoring Avg: " + data.stats["Scoring Average"]);
+      if (nonEmpty(data.rankings.Events))          rankingBits.push("Events: " + data.rankings.Events);
+      if (nonEmpty(data.stats["Drip Golf Rank"]))  rankingBits.push("Drip Golf Rank: #" + data.stats["Drip Golf Rank"]);
+      if (nonEmpty(data.stats["Overall JGS Rank"]))rankingBits.push("JGS Rank: #" + data.stats["Overall JGS Rank"]);
+      if (nonEmpty(data.stats["TUGR Rank"]))       rankingBits.push("TUGR Rank: #" + data.stats["TUGR Rank"]);
+      if (rankingBits.length) {
+        cur.text(rankingBits.join("  •  "), {
+          size: 9.5, style: "bold", color: [46, 125, 79], gap: 4, maxW: textMaxW,
+        });
+      }
+
+      // Make sure the header block is at least as tall as the avatar so
+      // subsequent sections don't crash into it on the right side.
+      if (photo && cur.getY() < MARGIN_Y + photoH + 6) {
+        cur.spacer(MARGIN_Y + photoH + 6 - cur.getY());
+      }
+    }
+
+    // ---- Season results ----
+    function drawSeasons(cur, data) {
+      data.seasons.forEach(({ year, tournaments }) => {
+        if (!tournaments.length) return;
+        cur.sectionHeader("Notable Results — " + year);
+        tournaments.forEach(t => cur.bullet(formatTournament(t)));
+      });
+    }
+
+    // ---- Bio + scoring profile ----
+    function drawBio(cur, data) {
+      const bio = data.personal.bio;
+      if (nonEmpty(bio)) {
+        cur.sectionHeader("Personal Bio");
+        cur.text(bio, { size: 10, gap: 4 });
+      }
+
+      const sc = (PORTFOLIO_DATA.golf && PORTFOLIO_DATA.golf.scoring) || {};
+      const scoringBits = [];
+      if (nonEmpty(sc["Par 3's"])) scoringBits.push("Par 3s: " + sc["Par 3's"]);
+      if (nonEmpty(sc["Par 4's"])) scoringBits.push("Par 4s: " + sc["Par 4's"]);
+      if (nonEmpty(sc["Par 5's"])) scoringBits.push("Par 5s: " + sc["Par 5's"]);
+      if (nonEmpty(sc.Birdies))    scoringBits.push("Birdies: " + sc.Birdies);
+      if (nonEmpty(sc.Pars))       scoringBits.push("Pars: " + sc.Pars);
+      if (nonEmpty(sc.Bogeys))     scoringBits.push("Bogeys: " + sc.Bogeys);
+      if (scoringBits.length) {
+        cur.sectionHeader("Scoring Profile");
+        cur.text(scoringBits.join("  •  "), { size: 9.5, gap: 4 });
+      }
+
+      if (nonEmpty(data.personal.currently_attending)) {
+        cur.sectionHeader("School");
+        cur.text(data.personal.currently_attending, { size: 10, gap: 4 });
+      }
+    }
+
+    // ---- Footer (small generated-on note) ----
+    function drawFooter(doc) {
+      const total = doc.getNumberOfPages();
+      for (let i = 1; i <= total; i++) {
+        doc.setPage(i);
+        doc.setFont("helvetica", "italic");
+        doc.setFontSize(8);
+        doc.setTextColor(140, 150, 145);
+        const stamp = "Generated " + new Date().toLocaleDateString() +
+                      "  •  Page " + i + " of " + total;
+        doc.text(stamp, PAGE_W / 2, PAGE_H - 18, { align: "center" });
+      }
+    }
+
+    // ---- Public entry point ----
+    function generate() {
+      if (!window.jspdf || !window.jspdf.jsPDF) {
+        alert("PDF library hasn't loaded yet — check your connection and try again.");
+        return;
+      }
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF({ unit: "pt", format: "letter" });
+      const data = collectData();
+      const cur  = makeCursor(doc);
+
+      drawHero(cur, data);
+      drawSeasons(cur, data);
+      drawBio(cur, data);
+      drawFooter(doc);
+
+      const safeName = (data.personal.name || "player")
+        .trim().replace(/\s+/g, "_").replace(/[^\w\-]/g, "");
+      doc.save(safeName + "_golf_resume.pdf");
+    }
+
+    function init() {
+      const btn = document.getElementById("resume-download-btn");
+      if (!btn) return;
+      btn.addEventListener("click", async () => {
+        const original = btn.textContent;
+        btn.disabled = true;
+        btn.textContent = "📄 Generating…";
+        try {
+          // requestAnimationFrame so the button-state change actually
+          // paints before the (synchronous) PDF build hogs the main thread.
+          await new Promise(r => requestAnimationFrame(r));
+          generate();
+        } catch (err) {
+          console.error("ResumeGenerator: failed:", err);
+          alert("Sorry — couldn't generate the PDF. See the console for details.");
+        } finally {
+          btn.disabled = false;
+          btn.textContent = original;
+        }
+      });
+    }
+
+    return { init, generate };
+  })();
+  window.ResumeGenerator = ResumeGenerator;
+
   // ---------- Boot ----------
   document.addEventListener("DOMContentLoaded", async () => {
     if (typeof PORTFOLIO_DATA === "undefined") {
@@ -4698,6 +5055,13 @@ const PORTFOLIO_DATA = {
     // for visitors, owner-only add/delete UI flips on with body.is-owner.
     if (window.UpcomingTournaments) {
       window.UpcomingTournaments.init();
+    }
+
+    // Resume PDF button — wires the visitor-only "Download Resume" pill.
+    // Safe to init after UserScores so the merged tournament list is
+    // already populated when the user clicks.
+    if (window.ResumeGenerator) {
+      window.ResumeGenerator.init();
     }
 
     // Populate the Upcoming form's Month/Day/Year selects and wire the
