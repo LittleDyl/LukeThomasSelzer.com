@@ -1605,7 +1605,6 @@ body.is-owner .visitor-only { display: none !important; }
       <p class="tagline" id="player-meta">Charlotte, NC</p>
       <div class="quick-stats">
         <div class="stat"><span class="stat-num" id="stat-scoring">—</span><span class="stat-label">Scoring Avg</span></div>
-        <div class="stat"><span class="stat-num" id="stat-events">—</span><span class="stat-label">Events</span></div>
         <div class="stat"><span class="stat-num" id="stat-drip-rank">—</span><span class="stat-label">Drip Golf Rank</span></div>
         <div class="stat"><span class="stat-num" id="stat-jgs-rank">—</span><span class="stat-label">JGS Rank</span></div>
         <div class="stat"><span class="stat-num" id="stat-tugr-rank">—</span><span class="stat-label">TUGR Rank</span></div>
@@ -3038,7 +3037,6 @@ const PORTFOLIO_DATA = {
         .filter(Boolean).join(" • ");
 
     $("#stat-scoring").textContent = data.golf.stats["Scoring Average"] || "—";
-    $("#stat-events").textContent  = data.golf.rankings.Events || "—";
 
     const fmtRank = v => (v && v !== "--") ? `#${v}` : "—";
     $("#stat-drip-rank").textContent = fmtRank(data.golf.stats["Drip Golf Rank"]);
