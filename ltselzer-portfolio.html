@@ -5484,6 +5484,33 @@ const PORTFOLIO_DATA = {
     // Up to N best finishes from each season, formatted "YYYY: Place — Name".
     // Sorted by place ASC (best first) within each season, then concatenated
     // newest-season-first so the most recent highlights lead.
+    // Turn a raw place string ("8", "T5", "21") into resume-friendly
+    // prose ("8th Place", "T5th Place", "21st Place").
+    //
+    // Uses the standard English ordinal rules: 1→st, 2→nd, 3→rd, else th,
+    // BUT the teens (11, 12, 13, …) all take "th" — handled by checking
+    // the last two digits before the last one. The optional leading "T"
+    // (golf-speak for "tied") is preserved verbatim so "T5" → "T5th Place".
+    // Falls back to the raw string unchanged if it isn't parseable, so
+    // exotic values like "WD" / "DQ" / "CUT" survive intact.
+    function formatPlace(raw) {
+      if (!nonEmpty(raw)) return "";
+      const s = String(raw).trim();
+      const m = s.match(/^(T)?(\d+)$/i);
+      if (!m) return s;
+      const prefix = m[1] ? m[1].toUpperCase() : "";
+      const n = parseInt(m[2], 10);
+      const lastTwo = n % 100;
+      const lastOne = n % 10;
+      let suffix = "th";
+      if (lastTwo < 11 || lastTwo > 13) {
+        if      (lastOne === 1) suffix = "st";
+        else if (lastOne === 2) suffix = "nd";
+        else if (lastOne === 3) suffix = "rd";
+      }
+      return prefix + n + suffix + " Place";
+    }
+
     function computeAchievements(data) {
       const PER_SEASON = 3;
       const out = [];
@@ -5494,8 +5521,13 @@ const PORTFOLIO_DATA = {
           .sort((a, b) => a.n - b.n)
           .slice(0, PER_SEASON)
           .map(({ t }) => {
+            // "2024:  8th Place at DGT Tarheel Junior Open  (235)"
+            // reads as a proper resume line instead of the old
+            // "2024:  8 — DGT Tarheel Junior Open  (235)" which
+            // looked like a half-translated CSV cell.
+            const place = formatPlace(t.place);
             const total = nonEmpty(t.total) ? "  (" + t.total + ")" : "";
-            return year + ":  " + t.place + " — " + t.name + total;
+            return year + ":  " + place + " at " + t.name + total;
           });
         out.push(...ranked);
       });
