@@ -5353,7 +5353,16 @@ const PORTFOLIO_DATA = {
       const t5  = countFinishes(data, 5);
       const t10 = countFinishes(data, 10);
       if (t5 + t10 > 0) {
-        rows.push(["HIGHLIGHTS", t5 + " top 5  \u00B7  " + t10 + " top 10"]);
+        // "2 Top-5 Finishes  ·  10 Top-10 Finishes" reads like a real golf
+        // resume bullet instead of the old "2 top 5  ·  10 top 10" which
+        // sounded like a half-finished sentence. Pluralization handled so
+        // a single Top-5 doesn't read "1 Top-5 Finishes".
+        const finish = (n, bracket) =>
+          n + " Top-" + bracket + " Finish" + (n === 1 ? "" : "es");
+        const bits = [];
+        if (t5  > 0) bits.push(finish(t5,  5));
+        if (t10 > 0) bits.push(finish(t10, 10));
+        rows.push(["HIGHLIGHTS", bits.join("  \u00B7  ")]);
       }
 
       const rankBits = [];
