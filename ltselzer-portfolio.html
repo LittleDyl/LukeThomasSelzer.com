@@ -5037,7 +5037,12 @@ const PORTFOLIO_DATA = {
     // Bottom breathing room so the last bullet never crowds the page
     // edge. drawSection() treats MAX_Y as a hard ceiling and silently
     // drops overflow items — single source of truth for footer space.
-    const BOTTOM_MARGIN = 100;
+    //
+    // 60pt (~0.83") is a standard resume bottom margin: enough air that
+    // the last bullet doesn't kiss the page edge, tight enough that the
+    // page doesn't read as half-empty. Tune this one constant to shift
+    // every section's available real estate at once.
+    const BOTTOM_MARGIN = 60;
     const MAX_Y = PAGE_H - BOTTOM_MARGIN;
 
     // ---- Color palette ----
