@@ -1385,18 +1385,55 @@ body.is-owner .visitor-only { display: none !important; }
    two read as a single stacked control group. */
 .resume-pill {
   position: absolute; top: 3.6rem; right: 1rem; z-index: 3;
-  background: var(--green-deep); color: #fff;
-  padding: 0.45rem 0.85rem; border-radius: 999px;
-  box-shadow: var(--shadow);
-  border: 1px solid rgba(255, 255, 255, 0.35);
-  display: flex; align-items: center; gap: 0.5rem;
+  /* Soft diagonal gradient echoes the hero's green wash so the pill
+     feels like part of the header instead of a flat sticker pasted on. */
+  background: linear-gradient(135deg, var(--green-deep) 0%, var(--green) 100%);
+  color: #fff;
+  padding: 0.5rem 0.95rem; border-radius: 999px;
+  /* Inset highlight on top edge = subtle "glassy" lift; outer shadow gets
+     a faint green tint so it reads as a glow rather than a generic drop. */
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    0 4px 10px rgba(20, 40, 30, 0.18),
+    0 1px 2px rgba(20, 40, 30, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  display: inline-flex; align-items: center; gap: 0.5rem;
   font-size: 0.8rem; font-weight: 700;
+  letter-spacing: 0.01em;
   cursor: pointer; font-family: inherit;
-  transition: background 0.15s ease, transform 0.1s ease;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.18);
+  transition:
+    background 0.2s ease,
+    transform 0.15s ease,
+    box-shadow 0.2s ease,
+    border-color 0.2s ease;
 }
-.resume-pill:hover { background: var(--green); }
-.resume-pill:active { transform: translateY(1px); }
-.resume-pill:disabled { opacity: 0.7; cursor: progress; }
+.resume-pill:hover {
+  background: linear-gradient(135deg, var(--green) 0%, var(--green-soft) 100%);
+  transform: translateY(-1px);
+  border-color: rgba(255, 255, 255, 0.45);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.3),
+    0 6px 16px rgba(63, 166, 103, 0.35),
+    0 2px 4px rgba(20, 40, 30, 0.18);
+}
+.resume-pill:focus-visible {
+  outline: none;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.3),
+    0 0 0 3px rgba(63, 166, 103, 0.45),
+    0 4px 10px rgba(20, 40, 30, 0.18);
+}
+.resume-pill:active {
+  transform: translateY(0);
+  box-shadow:
+    inset 0 2px 4px rgba(0, 0, 0, 0.18),
+    0 1px 2px rgba(20, 40, 30, 0.12);
+}
+.resume-pill:disabled {
+  opacity: 0.7; cursor: progress; transform: none;
+  box-shadow: var(--shadow);
+}
 .resume-pill[hidden] { display: none; }
 @media (max-width: 480px) {
   .resume-pill {
