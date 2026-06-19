@@ -5565,10 +5565,15 @@ const PORTFOLIO_DATA = {
         return pb - pa;
       });
       return flat.slice(0, MAX_RECENT).map((t) => {
+        // Match the Achievements voice: "8th Place at <tournament>  (235)".
+        // Falls back to just the tournament name when no place is recorded,
+        // and keeps the leading date stamp so the section still reads as a
+        // chronological log rather than a duplicate of Achievements.
         const d     = formatShortDate(t.date);
-        const place = nonEmpty(t.place) ? "  |  " + t.place : "";
-        const total = nonEmpty(t.total) ? "  |  " + t.total : "";
-        return (d ? d + "  " : "") + t.name + place + total;
+        const place = formatPlace(t.place);
+        const total = nonEmpty(t.total) ? "  (" + t.total + ")" : "";
+        const body  = place ? place + " at " + t.name : t.name;
+        return (d ? d + "  " : "") + body + total;
       });
     }
 
