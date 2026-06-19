@@ -498,15 +498,18 @@ h3 {
 .panel-header h3 { margin: 0; }
 
 /* ---------- Current Coach card (Golf Bio tab) ----------
-   Sits above the rankings list. Subtle cream panel so it reads as a
-   distinct "who's coaching me" block without overshadowing the
-   numbers below. Reuses .personal-edit-form for the inline editor. */
+   Sits above the rankings list. Clean white panel + green accent so it
+   still reads as a distinct "who's coaching me" block, but without the
+   old cream/yellow wash that clashed visually. Reuses
+   .personal-edit-form for the inline editor. */
 .coach-card {
   margin: 0.6rem 0 1.8rem;
   padding: 1rem 1.1rem 1.1rem;
-  background: var(--c-sand, #f3ead4);
+  background: #fff;
+  border: 1px solid rgba(31, 77, 43, 0.12);
   border-left: 4px solid var(--c-primary, #2e7d4f);
   border-radius: var(--radius);
+  box-shadow: var(--shadow);
 }
 .coach-card .panel-header { margin-bottom: 0.5rem; }
 .coach-card-title { font-size: 1.05rem; letter-spacing: 0.02em; }
