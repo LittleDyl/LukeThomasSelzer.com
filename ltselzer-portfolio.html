@@ -1379,12 +1379,15 @@ body.is-owner .owner-only { display: revert !important; }
    single source of truth for "what mode are we in?". */
 body.is-owner .visitor-only { display: none !important; }
 
-/* ---------- Resume pill ----------
-   Lives directly under the mode-pill in the hero. Only shown in visitor
-   mode (via .visitor-only). Same visual language as .mode-pill so the
-   two read as a single stacked control group. */
-.resume-pill {
-  position: absolute; top: 4.25rem; right: 1rem; z-index: 3;
+/* ---------- Hero pills (Resume + Theme) ----------
+   A stacked control group under the mode-pill in the top-right of the
+   hero. .resume-pill is visible to everyone; .theme-pill is owner-only
+   and inherits the same visual language so the two read as siblings
+   rather than competing widgets. Shared selectors (DRY) — the only
+   per-pill difference is vertical position. */
+.resume-pill,
+.theme-pill {
+  position: absolute; right: 1rem; z-index: 3;
   /* Soft diagonal gradient echoes the hero's green wash so the pill
      feels like part of the header instead of a flat sticker pasted on. */
   background: linear-gradient(135deg, var(--green-deep) 0%, var(--green) 100%);
@@ -1408,7 +1411,8 @@ body.is-owner .visitor-only { display: none !important; }
     box-shadow 0.2s ease,
     border-color 0.2s ease;
 }
-.resume-pill:hover {
+.resume-pill:hover,
+.theme-pill:hover {
   background: linear-gradient(135deg, var(--green) 0%, var(--green-soft) 100%);
   transform: translateY(-1px);
   border-color: rgba(255, 255, 255, 0.45);
@@ -1417,31 +1421,45 @@ body.is-owner .visitor-only { display: none !important; }
     0 6px 16px rgba(63, 166, 103, 0.35),
     0 2px 4px rgba(20, 40, 30, 0.18);
 }
-.resume-pill:focus-visible {
+.resume-pill:focus-visible,
+.theme-pill:focus-visible {
   outline: none;
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.3),
     0 0 0 3px rgba(63, 166, 103, 0.45),
     0 4px 10px rgba(20, 40, 30, 0.18);
 }
-.resume-pill:active {
+.resume-pill:active,
+.theme-pill:active {
   transform: translateY(0);
   box-shadow:
     inset 0 2px 4px rgba(0, 0, 0, 0.18),
     0 1px 2px rgba(20, 40, 30, 0.12);
 }
-.resume-pill:disabled {
+.resume-pill:disabled,
+.theme-pill:disabled {
   opacity: 0.7; cursor: progress; transform: none;
   box-shadow: var(--shadow);
 }
-.resume-pill[hidden] { display: none; }
+.resume-pill[hidden],
+.theme-pill[hidden] { display: none; }
+
+/* Per-pill vertical position. Spacing between resume-pill and
+   theme-pill mirrors the mode-pill → resume-pill gap so the three
+   form an evenly-spaced stack. */
+.resume-pill { top: 4.25rem; }
+.theme-pill  { top: 7.5rem;  }
+
 @media (max-width: 480px) {
-  .resume-pill {
-    top: 3.5rem; right: 0.6rem;
+  .resume-pill,
+  .theme-pill {
+    right: 0.6rem;
     padding: 0.35rem 0.65rem;
     font-size: 0.72rem;
     gap: 0.35rem;
   }
+  .resume-pill { top: 3.5rem; }
+  .theme-pill  { top: 6.3rem; }
 }
 .mode-pill button {
   background: rgba(255,255,255,0.18);
@@ -1467,17 +1485,6 @@ body.is-owner .visitor-only { display: none !important; }
     padding: 0.25rem 0.55rem;
     font-size: 0.7rem;
   }
-}
-
-/* Compact icon button (used for the 🎨 theme trigger inside the pill).
-   Just a transparent square with hover lift — no label, the emoji IS
-   the icon. Smaller padding than the sibling "Switch to…" button so
-   the pill doesn't grow obnoxiously wide. */
-.mode-pill .mode-pill-icon-btn {
-  background: rgba(255,255,255,0.18);
-  padding: 0.25rem 0.45rem;
-  font-size: 0.95rem;
-  line-height: 1;
 }
 
 /* ---------- Theme editor modal ----------
@@ -1614,20 +1621,28 @@ body.is-owner .visitor-only { display: none !important; }
          decides whether to show the gate or the saved role. -->
     <div id="mode-pill" class="mode-pill" hidden>
       <span id="mode-pill-label">🔑 Owner mode</span>
-      <!-- Theme editor trigger. Owner-only so visitors never see it. -->
-      <button type="button" id="theme-edit-btn" class="mode-pill-icon-btn owner-only"
-              title="Edit site theme" aria-label="Edit site theme">🎨</button>
       <button type="button" id="mode-pill-switch">Switch to Visitor</button>
     </div>
 
-    <!-- Visitor-only resume download. Sits directly under the mode-pill
-         (top-right corner of the hero) so visitors get a one-click PDF
-         summary of the player's bio + season results. Owner-mode users
-         don't need it — they're editing, not pitching college coaches. -->
+    <!-- Resume download. Now visible to BOTH owner and visitor — owners
+         like to grab a fresh PDF after edits to verify the output, and
+         it doubles as a quick preview button while iterating. -->
     <button type="button" id="resume-download-btn"
-            class="resume-pill visitor-only"
+            class="resume-pill"
             title="Download a one-page PDF resume based on this portfolio">
       📄 Download Resume PDF
+    </button>
+
+    <!-- Theme editor trigger. Owner-only so visitors never see it.
+         Promoted from a cramped icon-in-the-mode-pill to its own full
+         pill under the resume button so the palette is actually visible
+         and inviting. Same id as before — ThemeEditor wires up by id,
+         so no JS change needed. -->
+    <button type="button" id="theme-edit-btn"
+            class="theme-pill owner-only"
+            title="Edit site theme colors"
+            aria-label="Edit site theme colors">
+      🎨 Edit Site Theme
     </button>
 
     <div class="hero-content">
