@@ -5474,10 +5474,11 @@ const PORTFOLIO_DATA = {
 
     // Per-section item caps. Balanced so all three sections get airtime
     // on a single page; drawSection() still enforces MAX_Y as the hard
-    // safety net, but these caps keep the layout predictable. Trimmed
-    // Achievements + Upcoming a touch so Recent Events reliably renders
-    // inside the larger footer zone instead of getting starved out.
-    const MAX_ACHIEVEMENTS = 4;
+    // safety net, but these caps keep the layout predictable.
+    // Achievements gets the largest budget because it's the section most
+    // visitors actually skim — extra entries here also soak up the
+    // bottom-of-page whitespace that was previously left empty.
+    const MAX_ACHIEVEMENTS = 7;
     const MAX_UPCOMING     = 4;
     const MAX_RECENT       = 5;
 
