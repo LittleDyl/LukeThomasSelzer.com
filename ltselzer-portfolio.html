@@ -1608,6 +1608,7 @@ body.is-owner .visitor-only { display: none !important; }
         <div class="stat"><span class="stat-num" id="stat-drip-rank">—</span><span class="stat-label">Drip Golf Rank</span></div>
         <div class="stat"><span class="stat-num" id="stat-jgs-rank">—</span><span class="stat-label">JGS Rank</span></div>
         <div class="stat"><span class="stat-num" id="stat-tugr-rank">—</span><span class="stat-label">TUGR Rank</span></div>
+        <div class="stat"><span class="stat-num" id="stat-cga-rank">—</span><span class="stat-label">CGA Rank</span></div>
       </div>
     </div>
   </header>
@@ -2614,6 +2615,7 @@ const PORTFOLIO_DATA = {
       "Drip Golf Rank": "30",
       "Overall JGS Rank": "10557",
       "TUGR Rank": "8571",
+      "CGA Rank": "N/A",
       "Scoring Average": "81.12"
     },
     "rankings": {
@@ -3038,10 +3040,20 @@ const PORTFOLIO_DATA = {
 
     $("#stat-scoring").textContent = data.golf.stats["Scoring Average"] || "—";
 
-    const fmtRank = v => (v && v !== "--") ? `#${v}` : "—";
+    // fmtRank: prepend "#" for numeric ranks. Pass-through for N/A so we
+    // don't end up rendering nonsense like "#N/A" when a sanctioning body
+    // (e.g. CGA) doesn't list the player. (Zen: explicit is better than
+    // implicit; special cases aren't special enough to break the rules,
+    // but "N/A" is genuinely not a rank.)
+    const fmtRank = v => {
+      if (!v || v === "--") return "—";
+      if (/^n\/?a$/i.test(String(v).trim())) return "N/A";
+      return `#${v}`;
+    };
     $("#stat-drip-rank").textContent = fmtRank(data.golf.stats["Drip Golf Rank"]);
     $("#stat-jgs-rank").textContent  = fmtRank(data.golf.stats["Overall JGS Rank"]);
     $("#stat-tugr-rank").textContent = fmtRank(data.golf.stats["TUGR Rank"]);
+    $("#stat-cga-rank").textContent  = fmtRank(data.golf.stats["CGA Rank"]);
   }
 
   // ---------- Personal bio ----------
@@ -3276,6 +3288,7 @@ const PORTFOLIO_DATA = {
       ["Events Played",  r.Events],
       ["Overall JGS Rank", data.golf.stats["Overall JGS Rank"]],
       ["TUGR Rank",      data.golf.stats["TUGR Rank"]],
+      ["CGA Rank",       data.golf.stats["CGA Rank"]],
     ]);
 
     const s = data.golf.scoring;
@@ -5310,6 +5323,7 @@ const PORTFOLIO_DATA = {
       if (nonEmpty(stats["Overall JGS Rank"])) rankBits.push("Overall " + stats["Overall JGS Rank"]);
       if (nonEmpty(stats["TUGR Rank"]))        rankBits.push("TUGR "    + stats["TUGR Rank"]);
       if (nonEmpty(stats["Drip Golf Rank"]))   rankBits.push("Drip "    + stats["Drip Golf Rank"]);
+      if (nonEmpty(stats["CGA Rank"]))         rankBits.push("CGA "     + stats["CGA Rank"]);
       if (rankBits.length) rows.push(["RANKINGS", rankBits.join("  \u00B7  ")]);
 
       const playBits = [];
