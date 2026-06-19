@@ -5480,7 +5480,12 @@ const PORTFOLIO_DATA = {
     // bottom-of-page whitespace that was previously left empty.
     const MAX_ACHIEVEMENTS = 7;
     const MAX_UPCOMING     = 4;
-    const MAX_RECENT       = 5;
+    // Recent Events sits at the bottom of the page. Bumped to 7 to soak
+    // up the remaining whitespace below Upcoming — drawSection() still
+    // honors MAX_Y / BOTTOM_MARGIN, so if a row ever wouldn't fit
+    // cleanly inside the footer zone it's silently dropped instead of
+    // being half-painted onto the page edge.
+    const MAX_RECENT       = 7;
 
     // Up to N best finishes from each season, formatted "YYYY: Place — Name".
     // Sorted by place ASC (best first) within each season, then concatenated
