@@ -3260,6 +3260,13 @@ const PORTFOLIO_DATA = {
   // affect the scoring average." → recompute the overall scoring average
   // from ALL round scores across ALL merged events. Falls back to the
   // scraped stat when there are no rounds at all (blank slate case).
+  //
+  // ⚠️ SINGLE SOURCE OF TRUTH for "Scoring Average" everywhere on the
+  // site: hero pill, Golf Bio tab row, Resume PDF PROFILE line all read
+  // through this function (via window.getScoringAverage below). Do NOT
+  // reintroduce reads of PORTFOLIO_DATA.golf.stats["Scoring Average"] or
+  // PORTFOLIO_DATA.golf.rankings["Scoring Average"] outside of the
+  // fallback path here — those values are stale scrapes that will drift.
   function computeOverallScoringAverage() {
     const all = getAllEventsNewestFirst();
     const scores = all.flatMap(extractRoundScores);
@@ -3267,6 +3274,11 @@ const PORTFOLIO_DATA = {
     const avg = scores.reduce((a, b) => a + b, 0) / scores.length;
     return avg.toFixed(2);
   }
+
+  // Exposed for other IIFEs (ResumeGenerator, anything future) that need
+  // the same authoritative number. Mirrors the pattern already used by
+  // window.getMergedTournaments / window.parseTournamentDate.
+  window.getScoringAverage = computeOverallScoringAverage;
 
   function renderHero(data) {
     const photo = $("#player-photo");
@@ -3704,7 +3716,12 @@ const PORTFOLIO_DATA = {
       ["Division Rank",  r.Rank],
       ["Points",         r.Points],
       ["Differential",   r.Differential],
-      ["Scoring Average", r["Scoring Average"]],
+      // Live-computed — same helper the hero + resume use, so all three
+      // "Scoring Average" surfaces agree AND fold in user-added
+      // tournaments. Reading r["Scoring Average"] directly would show
+      // a stale scraped value that drifts the moment a tournament is
+      // added on the Season History tab.
+      ["Scoring Average", computeOverallScoringAverage()],
       ["Events Played",  r.Events],
       ["Overall JGS Rank", data.golf.stats["Overall JGS Rank"]],
       ["TUGR Rank",      data.golf.stats["TUGR Rank"]],
@@ -3778,6 +3795,12 @@ const PORTFOLIO_DATA = {
   window.rerenderSeason = function (year) {
     renderSeason(year, getMergedTournaments(year));
   };
+
+  // Same rationale as rerenderHero: adding a tournament changes the
+  // Scoring Average shown in the Golf Bio tab too, so the boot flow
+  // needs a way to refresh that panel without knowing renderGolf's
+  // internals. Kept trivial — just re-invokes with the current data.
+  window.rerenderGolf = () => renderGolf(PORTFOLIO_DATA);
 
   // Exposed so ResumeGenerator (and any future read-only consumer) can pull
   // the same scraped+user merged list the UI shows, without duplicating the
@@ -5761,7 +5784,16 @@ const PORTFOLIO_DATA = {
       if (rankBits.length) rows.push(["RANKINGS", rankBits.join("  \u00B7  ")]);
 
       const playBits = [];
-      if (nonEmpty(stats["Scoring Average"]))                playBits.push("Scoring Avg " + stats["Scoring Average"]);
+      // Prefer the live-computed scoring average (window.getScoringAverage,
+      // set by app.js) so the resume PDF matches what's on-screen AND
+      // reflects tournaments the owner has added. Falls back to the
+      // scraped stat only if app.js hasn't loaded yet (defensive — should
+      // never happen since ResumeGenerator.init runs after the main
+      // renderers).
+      const liveScoringAvg = (typeof window.getScoringAverage === "function")
+        ? window.getScoringAverage()
+        : stats["Scoring Average"];
+      if (nonEmpty(liveScoringAvg))                          playBits.push("Scoring Avg " + liveScoringAvg);
       if (data.rankings && nonEmpty(data.rankings.Events))   playBits.push(data.rankings.Events + " events");
       if (data.rankings && nonEmpty(data.rankings.division)) playBits.push(data.rankings.division);
       if (playBits.length) rows.push(["PROFILE", playBits.join("  \u00B7  ")]);
@@ -6081,18 +6113,22 @@ const PORTFOLIO_DATA = {
     // Fetch persisted tournaments BEFORE the first render so the initial
     // paint already includes them (avoids a flash of "no user data").
     if (window.UserScores) {
-      // The onChange hook now refreshes BOTH the season panel AND the
-      // hero — otherwise the header's scoring average + last-5 chart
-      // would silently drift out of sync with the tab data.
+      // Adding/removing a tournament changes the shared scoring average
+      // → every surface that shows it must re-render: season panel, hero
+      // (pill + last-5 chart), AND Golf Bio tab. Keeping this list here
+      // is the price of having three read surfaces; the alternative (a
+      // global event bus) would be overkill for a 3-subscriber use case.
       await window.UserScores.init((year) => {
         window.rerenderSeason(year);
         window.rerenderHero && window.rerenderHero();
+        window.rerenderGolf && window.rerenderGolf();
       });
     }
     ["2024", "2025", "2026"].forEach((y) => window.rerenderSeason(y));
-    // Recompute hero now that user-added tournaments are folded into
-    // the merged list. Safe to call unconditionally — no-ops cheaply.
+    // Recompute hero + Golf Bio now that user-added tournaments are
+    // folded into the merged list. Safe to call unconditionally.
     window.rerenderHero && window.rerenderHero();
+    window.rerenderGolf && window.rerenderGolf();
 
     // Swing videos gallery — fire-and-forget. The
     // grid shows a loading message until the GET resolves; the add/delete
