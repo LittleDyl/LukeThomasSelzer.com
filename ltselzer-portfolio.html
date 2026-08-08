@@ -201,6 +201,122 @@ h1 {
 .stat-num   { font-size: 1.9rem; font-weight: 800; color: var(--sand); }
 .stat-label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.15em; opacity: 0.85; }
 
+/* ---------- Hero Analytics ----------
+   Frosted-glass panel that sits inside the hero, below quick-stats.
+   Uses the same sand/green/ivory palette as everything else so it
+   reads as "part of the header" rather than a bolted-on widget.
+   Hidden by default via [hidden]; renderHeroAnalytics() flips it on
+   the moment there's actually data worth showing. */
+.hero-analytics {
+  margin: 0.4rem auto 0;
+  max-width: 720px;
+  padding: 1.1rem 1.3rem 1.2rem;
+  background: rgba(255, 255, 255, 0.09);
+  border: 1px solid rgba(231, 217, 166, 0.28); /* --sand @ ~28% */
+  border-radius: var(--radius);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  text-align: left;
+}
+.hero-analytics[hidden] { display: none; }
+
+.hero-analytics-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.8rem;
+  margin-bottom: 0.7rem;
+}
+.hero-analytics-eyebrow {
+  text-transform: uppercase;
+  letter-spacing: 0.22em;
+  font-size: 0.68rem;
+  color: var(--sand);
+  font-weight: 700;
+}
+.hero-analytics-title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: 0.02em;
+}
+
+.hero-analytics-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
+  gap: 1.1rem;
+  align-items: stretch;
+}
+@media (max-width: 620px) {
+  .hero-analytics-body { grid-template-columns: 1fr; }
+}
+
+/* Chart lives in a wrapper so the SVG can flex to full width without
+   needing width/height attributes (viewBox does the aspect work). */
+.hero-chart-wrap {
+  background: rgba(31, 42, 36, 0.22);
+  border-radius: 10px;
+  padding: 0.6rem 0.7rem 0.5rem;
+  min-height: 150px;
+  display: flex;
+  align-items: stretch;
+}
+.hero-chart {
+  display: block;
+  width: 100%;
+  height: 160px;
+  overflow: visible; /* labels + last point can nudge outside viewBox */
+}
+
+/* SVG primitives — targeted via classes so we keep styling in CSS and
+   markup generation stays dumb (Zen: simple > complex). */
+.hero-chart .hc-grid       { stroke: rgba(255, 255, 255, 0.14); stroke-width: 1; }
+.hero-chart .hc-axis-label { fill: rgba(255, 255, 255, 0.7); font-size: 10px; font-family: inherit; }
+.hero-chart .hc-line       { fill: none; stroke: var(--sand); stroke-width: 2.5; stroke-linejoin: round; stroke-linecap: round; }
+.hero-chart .hc-area       { fill: rgba(231, 217, 166, 0.18); stroke: none; }
+.hero-chart .hc-point      { fill: var(--sand); stroke: var(--green-deep); stroke-width: 1.5; }
+.hero-chart .hc-point-label{ fill: #fff; font-size: 10px; font-weight: 700; font-family: inherit; text-anchor: middle; }
+.hero-chart .hc-x-label    { fill: rgba(255, 255, 255, 0.75); font-size: 9.5px; font-family: inherit; text-anchor: middle; }
+
+/* Tiles — small quick-facts stack, mirrors the .stat vibe but denser. */
+.hero-analytics-tiles {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.5rem;
+  align-content: stretch;
+}
+.hero-analytics-tiles li {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  padding: 0.55rem 0.75rem;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.6rem;
+}
+.hero-analytics-tiles .tile-label {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: rgba(255, 255, 255, 0.78);
+  font-weight: 600;
+}
+.hero-analytics-tiles .tile-value {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: var(--sand);
+  font-variant-numeric: tabular-nums;
+}
+/* Trend arrow coloring — green for improving (lower avg), red for
+   worsening. Neutral cream otherwise. Kept simple with modifier classes. */
+.hero-analytics-tiles .tile-value.trend-up   { color: #ff9999; }   /* higher scores = worse */
+.hero-analytics-tiles .tile-value.trend-down { color: #b8f0c8; }   /* lower scores  = better */
+.hero-analytics-tiles .tile-value.trend-flat { color: var(--sand); }
+
 /* ---------- Layout ---------- */
 .container {
   max-width: 960px;
@@ -1664,6 +1780,30 @@ body.is-owner .visitor-only { display: none !important; }
         <div class="stat"><span class="stat-num" id="stat-tugr-rank">—</span><span class="stat-label">TUGR Rank</span></div>
         <div class="stat"><span class="stat-num" id="stat-cga-rank">—</span><span class="stat-label">CGA Rank</span></div>
       </div>
+
+      <!-- ===== Hero Analytics =====
+           Live-computed rollups so the header actually reacts when the
+           owner adds a tournament. Fed by renderHeroAnalytics() which
+           reuses getMergedTournaments() — single source of truth for
+           "which tournaments count", DRY across hero + Season History.
+           Hidden by default; the renderer flips it on once there's at
+           least one round to plot (avoids an empty box on first paint). -->
+      <section class="hero-analytics" id="hero-analytics" aria-label="Recent performance analytics" hidden>
+        <header class="hero-analytics-header">
+          <span class="hero-analytics-eyebrow">Analytics</span>
+          <h2 class="hero-analytics-title">Last 5 Events</h2>
+        </header>
+        <div class="hero-analytics-body">
+          <div class="hero-chart-wrap">
+            <!-- Chart is redrawn on every render. viewBox is fixed so
+                 the SVG scales fluidly with its container width. -->
+            <svg id="hero-chart" class="hero-chart" viewBox="0 0 600 200"
+                 preserveAspectRatio="none" role="img"
+                 aria-label="Line chart of scoring average across the last 5 events"></svg>
+          </div>
+          <ul class="hero-analytics-tiles" id="hero-analytics-tiles"></ul>
+        </div>
+      </section>
     </div>
   </header>
 
@@ -3081,6 +3221,53 @@ const PORTFOLIO_DATA = {
   }
 
   // ---------- Hero ----------
+  // Season IDs we know about. Duplicated here rather than reaching into
+  // UserScores.SEASONS because UserScores may not be initialized yet the
+  // first time renderHero() runs — and we still want the hero to work.
+  const HERO_SEASONS = ["2024", "2025", "2026"];
+
+  // Pull round scores out of a tournament's rounds[]. Score strings look
+  // like "77 (+5)" — we only need the leading integer for averaging.
+  function extractRoundScores(tournament) {
+    const scores = [];
+    (tournament.rounds || []).forEach((r) => {
+      const m = /^(\d+)/.exec(r.score || "");
+      if (m) scores.push(parseInt(m[1], 10));
+    });
+    return scores;
+  }
+
+  // Every event across every season, newest → oldest, merged with any
+  // owner-added tournaments. Reuses getMergedTournaments so the hero and
+  // Season History tab always agree on what "counts" (single source of
+  // truth). If getMergedTournaments isn't defined yet (first paint before
+  // it's declared later in the IIFE), we fall back to the scraped seasons.
+  function getAllEventsNewestFirst() {
+    const all = [];
+    HERO_SEASONS.forEach((year) => {
+      const bucket = (typeof getMergedTournaments === "function")
+        ? getMergedTournaments(year)
+        : (PORTFOLIO_DATA.seasons[year] || []).slice();
+      bucket.forEach((t) => all.push(t));
+    });
+    // getMergedTournaments sorts per-season; a merged multi-season list
+    // needs its own pass. parseTournamentDate is defined later in the
+    // IIFE (hoisted at call time), so this is safe.
+    return all.sort((a, b) => parseTournamentDate(b.date) - parseTournamentDate(a.date));
+  }
+
+  // "Everything from Drip Golf but the tournaments that are added should
+  // affect the scoring average." → recompute the overall scoring average
+  // from ALL round scores across ALL merged events. Falls back to the
+  // scraped stat when there are no rounds at all (blank slate case).
+  function computeOverallScoringAverage() {
+    const all = getAllEventsNewestFirst();
+    const scores = all.flatMap(extractRoundScores);
+    if (!scores.length) return PORTFOLIO_DATA.golf.stats["Scoring Average"] || "—";
+    const avg = scores.reduce((a, b) => a + b, 0) / scores.length;
+    return avg.toFixed(2);
+  }
+
   function renderHero(data) {
     const photo = $("#player-photo");
     photo.src = data.personal.photo;
@@ -3092,7 +3279,9 @@ const PORTFOLIO_DATA = {
       [data.personal.hometown, data.personal.class_year, data.personal.age]
         .filter(Boolean).join(" • ");
 
-    $("#stat-scoring").textContent = data.golf.stats["Scoring Average"] || "—";
+    // Dynamically computed — folds in every owner-added tournament so the
+    // number in the hero always matches the data on the History tab.
+    $("#stat-scoring").textContent = computeOverallScoringAverage();
 
     // fmtRank: prepend "#" for numeric ranks. Pass-through for N/A so we
     // don't end up rendering nonsense like "#N/A" when a sanctioning body
@@ -3108,6 +3297,183 @@ const PORTFOLIO_DATA = {
     $("#stat-jgs-rank").textContent  = fmtRank(data.golf.stats["Overall JGS Rank"]);
     $("#stat-tugr-rank").textContent = fmtRank(data.golf.stats["TUGR Rank"]);
     $("#stat-cga-rank").textContent  = fmtRank(data.golf.stats["CGA Rank"]);
+
+    renderHeroAnalytics();
+  }
+
+  // Expose so user-scores.js (and anything else that mutates tournament
+  // data) can refresh the header without needing to know renderHero's
+  // internals. Same pattern as window.rerenderSeason.
+  window.rerenderHero = () => renderHero(PORTFOLIO_DATA);
+
+  // ---------- Hero Analytics (Last 5 Events chart + tiles) ----------
+  // Renders a mini SVG line chart of the per-event round average across
+  // the 5 most recent tournaments, plus a small stack of tiles with
+  // headline numbers. Skips rendering (hides the whole panel) when
+  // there's no round data at all — cleaner than showing an empty box.
+  function renderHeroAnalytics() {
+    const panel = document.getElementById("hero-analytics");
+    const svg   = document.getElementById("hero-chart");
+    const tiles = document.getElementById("hero-analytics-tiles");
+    if (!panel || !svg || !tiles) return;
+
+    // Build the chronological last-5 event list. We ask for the newest
+    // 5 (which is what "last 5 events" means colloquially), then reverse
+    // so the chart reads left-to-right = oldest-to-newest — the way any
+    // human expects a time series to flow.
+    const newestFirst = getAllEventsNewestFirst()
+      .map((t) => ({ tournament: t, roundScores: extractRoundScores(t) }))
+      .filter((e) => e.roundScores.length > 0)
+      .slice(0, 5);
+
+    if (!newestFirst.length) { panel.hidden = true; return; }
+    panel.hidden = false;
+
+    const events = newestFirst.slice().reverse(); // oldest → newest, left → right
+    const points = events.map((e) => ({
+      label: shortEventLabel(e.tournament),
+      value: +(e.roundScores.reduce((a, b) => a + b, 0) / e.roundScores.length).toFixed(2),
+    }));
+
+    drawHeroChart(svg, points);
+    renderHeroTiles(tiles, points, events);
+  }
+
+  // Compact label for the x-axis. Tournament names get long fast; we
+  // slice them to 14 chars so the axis stays legible. Date-only fallback
+  // when there's no name (shouldn't happen but defensive is cheap).
+  function shortEventLabel(t) {
+    const name = (t.name || "").trim();
+    if (name) return name.length > 14 ? name.slice(0, 12) + "…" : name;
+    return (t.date || "").split("/").slice(0, 2).join("/") || "—";
+  }
+
+  // Draw an SVG line chart. Pure DOM, no library. Coordinates are laid
+  // out in the 0..600 × 0..200 viewBox from the markup — the SVG scales
+  // to whatever CSS width the container gives it (preserveAspectRatio="none"
+  // stretches horizontally so all 5 points always fit end-to-end).
+  function drawHeroChart(svg, points) {
+    // Reset previous render — simpler than diffing, and the point count
+    // is tiny (≤5) so full-rebuild cost is invisible.
+    svg.innerHTML = "";
+    const svgNS = "http://www.w3.org/2000/svg";
+    const make  = (tag, attrs, text) => {
+      const n = document.createElementNS(svgNS, tag);
+      Object.entries(attrs || {}).forEach(([k, v]) => n.setAttribute(k, v));
+      if (text != null) n.textContent = text;
+      return n;
+    };
+
+    const W = 600, H = 200;
+    const pad = { top: 20, right: 24, bottom: 34, left: 34 };
+    const plotW = W - pad.left - pad.right;
+    const plotH = H - pad.top - pad.bottom;
+
+    // Y-domain: pad ±2 strokes around min/max so the line never sits
+    // flush against the top/bottom edge of the plot area.
+    const values = points.map((p) => p.value);
+    const rawMin = Math.min(...values);
+    const rawMax = Math.max(...values);
+    const yMin = Math.floor(rawMin - 2);
+    const yMax = Math.ceil(rawMax + 2);
+    const ySpan = Math.max(yMax - yMin, 1);
+
+    // X positions — evenly distributed. Single point gets centered.
+    const xFor = (i) => points.length === 1
+      ? pad.left + plotW / 2
+      : pad.left + (plotW * i) / (points.length - 1);
+    const yFor = (v) => pad.top + plotH * (1 - (v - yMin) / ySpan);
+
+    // Horizontal grid lines — 3 evenly spaced ticks for a sense of scale
+    // without cluttering. Labels sit just left of the plot area.
+    const ticks = 3;
+    for (let i = 0; i <= ticks; i++) {
+      const val = yMin + (ySpan * i) / ticks;
+      const y   = yFor(val);
+      svg.appendChild(make("line", {
+        class: "hc-grid",
+        x1: pad.left,    y1: y,
+        x2: W - pad.right, y2: y,
+      }));
+      svg.appendChild(make("text", {
+        class: "hc-axis-label",
+        x: pad.left - 6, y: y + 3,
+        "text-anchor": "end",
+      }, val.toFixed(0)));
+    }
+
+    // Area fill under the line — a translucent sand wash so the eye is
+    // drawn to the trend, not the individual pixels.
+    if (points.length > 1) {
+      const areaPath = points.map((p, i) => `${i === 0 ? "M" : "L"} ${xFor(i)} ${yFor(p.value)}`).join(" ") +
+        ` L ${xFor(points.length - 1)} ${H - pad.bottom}` +
+        ` L ${xFor(0)} ${H - pad.bottom} Z`;
+      svg.appendChild(make("path", { class: "hc-area", d: areaPath }));
+
+      const linePath = points.map((p, i) => `${i === 0 ? "M" : "L"} ${xFor(i)} ${yFor(p.value)}`).join(" ");
+      svg.appendChild(make("path", { class: "hc-line", d: linePath }));
+    }
+
+    // Points + inline value labels + x-axis event labels.
+    points.forEach((p, i) => {
+      const cx = xFor(i);
+      const cy = yFor(p.value);
+      svg.appendChild(make("circle", { class: "hc-point", cx, cy, r: 4.5 }));
+      svg.appendChild(make("text", {
+        class: "hc-point-label",
+        x: cx, y: cy - 9,
+      }, p.value.toFixed(1)));
+      svg.appendChild(make("text", {
+        class: "hc-x-label",
+        x: cx, y: H - pad.bottom + 16,
+      }, p.label));
+    });
+  }
+
+  // Right-hand tiles — headline numbers derived from the same last-5
+  // window. Kept in sync with the chart by receiving the same `points`
+  // array (single source of truth for the render).
+  function renderHeroTiles(host, points, events) {
+    host.innerHTML = "";
+
+    // Last-5 event average: mean of the per-event averages we already
+    // plotted. Equivalent to the mean of the plotted line's y-values.
+    const avgOfEvents = points.reduce((s, p) => s + p.value, 0) / points.length;
+
+    // Best single round in the last-5 window. Pull from the raw round
+    // score arrays we stashed on each event — more informative than the
+    // per-event average when a player has one hot round.
+    const allRoundScores = events.flatMap((e) => e.roundScores);
+    const bestRound = allRoundScores.length ? Math.min(...allRoundScores) : null;
+
+    // Trend = last event vs first event in the window. Lower = better
+    // (golf!), so we flip the sign for the arrow's meaning.
+    const first = points[0].value;
+    const last  = points[points.length - 1].value;
+    const delta = +(last - first).toFixed(2);
+    let trendClass = "trend-flat";
+    let trendGlyph = "→";
+    if (delta < -0.05) { trendClass = "trend-down"; trendGlyph = "▼"; } // improved
+    else if (delta > 0.05) { trendClass = "trend-up"; trendGlyph = "▲"; }
+
+    const tileSpecs = [
+      { label: "Last 5 Avg",   value: avgOfEvents.toFixed(2), cls: "" },
+      { label: "Best Round",   value: bestRound == null ? "—" : String(bestRound), cls: "" },
+      { label: "Trend",        value: `${trendGlyph} ${Math.abs(delta).toFixed(2)}`, cls: trendClass },
+    ];
+
+    tileSpecs.forEach((t) => {
+      const li = document.createElement("li");
+      const label = document.createElement("span");
+      label.className = "tile-label";
+      label.textContent = t.label;
+      const value = document.createElement("span");
+      value.className = `tile-value ${t.cls}`.trim();
+      value.textContent = t.value;
+      li.appendChild(label);
+      li.appendChild(value);
+      host.appendChild(li);
+    });
   }
 
   // ---------- Personal bio ----------
@@ -5715,9 +6081,18 @@ const PORTFOLIO_DATA = {
     // Fetch persisted tournaments BEFORE the first render so the initial
     // paint already includes them (avoids a flash of "no user data").
     if (window.UserScores) {
-      await window.UserScores.init((year) => window.rerenderSeason(year));
+      // The onChange hook now refreshes BOTH the season panel AND the
+      // hero — otherwise the header's scoring average + last-5 chart
+      // would silently drift out of sync with the tab data.
+      await window.UserScores.init((year) => {
+        window.rerenderSeason(year);
+        window.rerenderHero && window.rerenderHero();
+      });
     }
     ["2024", "2025", "2026"].forEach((y) => window.rerenderSeason(y));
+    // Recompute hero now that user-added tournaments are folded into
+    // the merged list. Safe to call unconditionally — no-ops cheaply.
+    window.rerenderHero && window.rerenderHero();
 
     // Swing videos gallery — fire-and-forget. The
     // grid shows a loading message until the GET resolves; the add/delete
