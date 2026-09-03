@@ -13,7 +13,10 @@ import sys
 
 from playwright.sync_api import sync_playwright
 
-URL = "http://localhost:8765/ltselzer-portfolio.html"
+# Override with the first CLI arg to point at a deployed environment,
+# e.g. `python tools/verify_hero.py https://lukethomasselzer.netlify.app`.
+URL = (sys.argv[1] if len(sys.argv) > 1
+       else "http://localhost:8765/ltselzer-portfolio.html")
 SHOTS = pathlib.Path(__file__).resolve().parent.parent / "shots"
 
 # selector -> how many nodes we expect at minimum. One table drives both
