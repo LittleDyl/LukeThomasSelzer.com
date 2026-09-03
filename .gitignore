@@ -30,3 +30,7 @@ desktop.ini
 
 # Throwaway scrape / debug helpers — never commit
 _scratch_*
+
+# Local dev artifacts — regenerate with `python tools/verify_hero.py`
+shots/
+server.log

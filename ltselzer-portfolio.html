@@ -1693,6 +1693,16 @@ body.is-owner .visitor-only { display: none !important; }
 }
 
 </style>
+
+  <!-- Hero "broadcast leaderboard" skin. MUST stay after the inline
+       <style> above: it overrides same-specificity selectors like
+       .hero-content and .hero-chart, so source order is what decides.
+       Additive only — it reads the same --green / --sand custom
+       properties the Theme Editor writes, so theming still works. -->
+  <link rel="stylesheet" href="assets/hero-pop.css" />
+  <!-- Motion + interaction for the hero. Observes the DOM rather than
+       being called by renderHero(), so re-renders are handled for free. -->
+  <script defer src="assets/hero-pop.js"></script>
 </head>
 <body>
   <!-- ---------- Owner gate (UX-level password protection) ---------- -->
@@ -1764,21 +1774,31 @@ body.is-owner .visitor-only { display: none !important; }
     </button>
 
     <div class="hero-content">
-      <!-- crossorigin="anonymous" is required so the visitor resume PDF can
-         draw this photo into a canvas without tainting it. Supabase Storage
-         returns the matching Access-Control-Allow-Origin header for public
-         buckets, so the fetch succeeds and toDataURL() doesn't throw. -->
-    <img id="player-photo" class="player-photo" alt="Luke Thomas Selzer"
-         crossorigin="anonymous" />
-      <p class="eyebrow">Junior Golfer Portfolio</p>
-      <h1 id="player-name">Luke Thomas Selzer</h1>
-      <p class="tagline" id="player-meta">Charlotte, NC</p>
+      <!-- Identity block. The avatar wrapper exists purely so the animated
+           halo has something to anchor to without a second <img>. -->
+      <div class="hero-identity" data-reveal>
+        <div class="hero-avatar">
+          <!-- crossorigin="anonymous" is required so the visitor resume PDF can
+             draw this photo into a canvas without tainting it. Supabase Storage
+             returns the matching Access-Control-Allow-Origin header for public
+             buckets, so the fetch succeeds and toDataURL() doesn't throw. -->
+          <img id="player-photo" class="player-photo" alt="Luke Thomas Selzer"
+               crossorigin="anonymous" />
+        </div>
+        <div class="hero-identity-text">
+          <p class="eyebrow">Junior Golfer Portfolio</p>
+          <h1 id="player-name">Luke Thomas Selzer</h1>
+          <!-- Filled with one <span> chip per fact by renderHero(). -->
+          <p class="tagline" id="player-meta"></p>
+        </div>
+      </div>
+
       <div class="quick-stats">
-        <div class="stat"><span class="stat-num" id="stat-scoring">—</span><span class="stat-label">Scoring Avg</span></div>
-        <div class="stat"><span class="stat-num" id="stat-drip-rank">—</span><span class="stat-label">Drip Golf Rank</span></div>
-        <div class="stat"><span class="stat-num" id="stat-jgs-rank">—</span><span class="stat-label">JGS Rank</span></div>
-        <div class="stat"><span class="stat-num" id="stat-tugr-rank">—</span><span class="stat-label">TUGR Rank</span></div>
-        <div class="stat"><span class="stat-num" id="stat-cga-rank">—</span><span class="stat-label">CGA Rank</span></div>
+        <div class="stat" data-reveal><span class="stat-num" id="stat-scoring">—</span><span class="stat-label">Scoring Avg</span></div>
+        <div class="stat" data-reveal><span class="stat-num" id="stat-drip-rank">—</span><span class="stat-label">Drip Golf Rank</span></div>
+        <div class="stat" data-reveal><span class="stat-num" id="stat-jgs-rank">—</span><span class="stat-label">JGS Rank</span></div>
+        <div class="stat" data-reveal><span class="stat-num" id="stat-tugr-rank">—</span><span class="stat-label">TUGR Rank</span></div>
+        <div class="stat" data-reveal><span class="stat-num" id="stat-cga-rank">—</span><span class="stat-label">CGA Rank</span></div>
       </div>
 
       <!-- ===== Hero Analytics =====
@@ -1788,7 +1808,7 @@ body.is-owner .visitor-only { display: none !important; }
            "which tournaments count", DRY across hero + Season History.
            Hidden by default; the renderer flips it on once there's at
            least one round to plot (avoids an empty box on first paint). -->
-      <section class="hero-analytics" id="hero-analytics" aria-label="Recent performance analytics" hidden>
+      <section class="hero-analytics" id="hero-analytics" aria-label="Recent performance analytics" data-reveal hidden>
         <header class="hero-analytics-header">
           <span class="hero-analytics-eyebrow">Analytics</span>
           <h2 class="hero-analytics-title">Last 5 Events</h2>
@@ -1802,6 +1822,21 @@ body.is-owner .visitor-only { display: none !important; }
                  aria-label="Line chart of scoring average across the last 5 events"></svg>
           </div>
           <ul class="hero-analytics-tiles" id="hero-analytics-tiles"></ul>
+        </div>
+
+        <!-- ===== Recent Form =====
+             A real leaderboard board: same five events as the chart, but
+             read as rows (finish / event / rounds / total / to par). The
+             chart shows the shape of the trend; this shows the receipts.
+             Populated by renderRecentForm() from the SAME events array
+             the chart uses — one query, two views. -->
+        <div class="hero-form" id="hero-form" hidden>
+          <div class="fs-head" aria-hidden="true">
+            <span>Pos</span><span>Event</span><span>Rounds</span>
+            <span style="text-align:right">Total</span>
+            <span style="text-align:center">To Par</span>
+          </div>
+          <ol class="fs-rows" id="hero-form-rows"></ol>
         </div>
       </section>
     </div>
@@ -3281,15 +3316,38 @@ const PORTFOLIO_DATA = {
   window.getScoringAverage = computeOverallScoringAverage;
 
   function renderHero(data) {
+    // Hide the whole avatar WRAPPER, not just the <img> — the animated
+    // halo is a pseudo-element on the wrapper, so hiding only the image
+    // leaves an orphaned glowing dot floating next to the name.
     const photo = $("#player-photo");
-    photo.src = data.personal.photo;
+    const avatar = photo.closest(".hero-avatar") || photo;
+    const setAvatar = (shown) => avatar.classList.toggle("is-empty", !shown);
+
     photo.alt = data.personal.name;
-    photo.onerror = () => { photo.style.display = "none"; };
+    photo.onerror = () => setAvatar(false);
+    photo.onload = () => setAvatar(true);
+    // Monogram fallback for the no-photo case. CSS renders it from the
+    // attribute, so there's no second element to keep in sync.
+    avatar.dataset.initials = (data.personal.name || "")
+      .split(/\s+/).filter(Boolean).slice(0, 2)
+      .map((w) => w[0].toUpperCase()).join("");
+    setAvatar(Boolean(data.personal.photo));
+    if (data.personal.photo) photo.src = data.personal.photo;
 
     $("#player-name").textContent = data.personal.name;
-    $("#player-meta").textContent =
-      [data.personal.hometown, data.personal.class_year, data.personal.age]
-        .filter(Boolean).join(" • ");
+
+    // Meta facts render as individual chips rather than one bullet-joined
+    // string. Same data, same order — the separator just became a border
+    // radius. Styling lives in hero-pop.css; this stays a dumb mapper.
+    const metaHost = $("#player-meta");
+    metaHost.textContent = "";
+    [data.personal.hometown, data.personal.class_year, data.personal.age]
+      .filter(Boolean)
+      .forEach((fact) => {
+        const chip = document.createElement("span");
+        chip.textContent = fact;
+        metaHost.appendChild(chip);
+      });
 
     // Dynamically computed — folds in every owner-added tournament so the
     // number in the hero always matches the data on the History tab.
@@ -3349,6 +3407,51 @@ const PORTFOLIO_DATA = {
 
     drawHeroChart(svg, points);
     renderHeroTiles(tiles, points, events);
+    renderRecentForm(events);
+  }
+
+  // ---------- Recent Form leaderboard ----------
+  // Same five events as the chart, rendered as leaderboard rows. Takes
+  // the events array straight from renderHeroAnalytics so there is
+  // exactly one definition of "the last 5 events" on this page.
+  // Newest-first here (a leaderboard reads top-down, not left-to-right).
+  function renderRecentForm(events) {
+    const panel = document.getElementById("hero-form");
+    const rows  = document.getElementById("hero-form-rows");
+    if (!panel || !rows) return;
+
+    rows.innerHTML = "";
+    panel.hidden = !events.length;
+    if (!events.length) return;
+
+    events.slice().reverse().forEach(({ tournament: t, roundScores }) => {
+      const total = parseTotal(t.total);
+      const place = (t.place || "").trim();
+      const placeNum = parseInt(/(\d+)/.exec(place)?.[1] ?? "", 10);
+
+      const li  = document.createElement("li");
+      const row = el("div", "fs-row");
+
+      const pos = el("span", "fs-pos", place || "—");
+      if (placeNum <= 3) pos.classList.add("is-podium");
+
+      const event = el("span", "fs-event");
+      event.appendChild(el("span", "fs-name", t.name || "Event"));
+      event.appendChild(el("span", "fs-meta",
+        [t.date, t.division].filter(Boolean).join(" • ")));
+
+      const rounds = el("span", "fs-rounds");
+      roundScores.forEach((s) => rounds.appendChild(el("i", "", String(s))));
+
+      const totalEl = el("span", "fs-total",
+        total.score == null ? "—" : String(total.score));
+      const parEl = el("span", `fs-par ${diffClass(total.diffNum)}`.trim(),
+        total.diff || "—");
+
+      [pos, event, rounds, totalEl, parEl].forEach((n) => row.appendChild(n));
+      li.appendChild(row);
+      rows.appendChild(li);
+    });
   }
 
   // Compact label for the x-axis. Tournament names get long fast; we
@@ -3367,7 +3470,30 @@ const PORTFOLIO_DATA = {
   function drawHeroChart(svg, points) {
     // Reset previous render — simpler than diffing, and the point count
     // is tiny (≤5) so full-rebuild cost is invisible.
-    svg.innerHTML = "";
+    //
+    // The <defs> go back in on every render because innerHTML wiped them.
+    // stop-color has to be a *style* property, not an attribute, for
+    // var() to resolve — that's what keeps the chart on-theme when the
+    // owner changes the palette.
+    svg.innerHTML = `
+      <defs>
+        <linearGradient id="hc-stroke" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%"   style="stop-color:var(--green-soft)" />
+          <stop offset="55%"  style="stop-color:var(--sand)" />
+          <stop offset="100%" style="stop-color:#ffffff" />
+        </linearGradient>
+        <linearGradient id="hc-fill" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%"   style="stop-color:var(--sand);stop-opacity:0.45" />
+          <stop offset="100%" style="stop-color:var(--sand);stop-opacity:0" />
+        </linearGradient>
+        <filter id="hc-glow" x="-25%" y="-60%" width="150%" height="220%">
+          <feGaussianBlur stdDeviation="3.2" result="blur" />
+          <feMerge>
+            <feMergeNode in="blur" />
+            <feMergeNode in="SourceGraphic" />
+          </feMerge>
+        </filter>
+      </defs>`;
     const svgNS = "http://www.w3.org/2000/svg";
     const make  = (tag, attrs, text) => {
       const n = document.createElementNS(svgNS, tag);
@@ -3423,18 +3549,34 @@ const PORTFOLIO_DATA = {
       svg.appendChild(make("path", { class: "hc-area", d: areaPath }));
 
       const linePath = points.map((p, i) => `${i === 0 ? "M" : "L"} ${xFor(i)} ${yFor(p.value)}`).join(" ");
-      svg.appendChild(make("path", { class: "hc-line", d: linePath }));
+      const line = make("path", { class: "hc-line", d: linePath });
+      svg.appendChild(line);
+      // Hand the real path length to CSS so the draw-in dash animation
+      // works for any number of points without hardcoded magic numbers.
+      line.style.setProperty("--hc-len", line.getTotalLength());
     }
 
-    // Points + inline value labels + x-axis event labels.
+    // Points + inline value labels + x-axis event labels. Each point is
+    // grouped so ChartTip (hero-pop.js) can hit-test one node and read
+    // its coordinates from data-* — the SVG stays the source of truth.
     points.forEach((p, i) => {
       const cx = xFor(i);
       const cy = yFor(p.value);
-      svg.appendChild(make("circle", { class: "hc-point", cx, cy, r: 4.5 }));
-      svg.appendChild(make("text", {
+      const g = make("g", {
+        class: "hc-pt-g",
+        "data-vx": cx, "data-vy": cy,
+        "data-label": p.label, "data-value": p.value.toFixed(2),
+      });
+      g.style.animationDelay = `${0.55 + i * 0.09}s`;
+
+      g.appendChild(make("circle", { class: "hc-point-halo", cx, cy, r: 11 }));
+      g.appendChild(make("circle", { class: "hc-point", cx, cy, r: 4.5 }));
+      g.appendChild(make("text", {
         class: "hc-point-label",
-        x: cx, y: cy - 9,
+        x: cx, y: cy - 12,
       }, p.value.toFixed(1)));
+      svg.appendChild(g);
+
       svg.appendChild(make("text", {
         class: "hc-x-label",
         x: cx, y: H - pad.bottom + 16,
